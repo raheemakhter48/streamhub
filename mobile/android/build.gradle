@@ -1,0 +1,49 @@
+buildscript {
+    ext {
+        buildToolsVersion = "35.0.0"
+        minSdkVersion = 21
+        compileSdkVersion = 35
+        targetSdkVersion = 34
+        ndkVersion = "25.1.8937393"
+        kotlinVersion = "1.8.0"
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.6.1")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    }
+}
+
+allprojects {
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    
+    // Disable Kotlin warnings as errors
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            allWarningsAsErrors = false
+            freeCompilerArgs = ['-Xno-param-assertions', '-Xno-call-assertions', '-Xno-receiver-assertions']
+        }
+    }
+}
+
+// Specifically configure the gradle-plugin subproject
+subprojects {
+    afterEvaluate { project ->
+        if (project.name == 'gradle-plugin') {
+            project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    allWarningsAsErrors = false
+                }
+            }
+        }
+    }
+}
+
+apply plugin: "com.facebook.react.rootproject"
