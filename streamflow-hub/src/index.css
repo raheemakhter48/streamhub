@@ -140,4 +140,19 @@ All colors MUST be HSL.
   .hover-glow:hover {
     box-shadow: var(--shadow-neon);
   }
+
+  /* Remove Lovable Logo/Watermark */
+  [class*="lovable"], 
+  [id*="lovable"], 
+  iframe[src*="lovable"], 
+  a[href*="lovable.dev"],
+  button[class*="lovable"],
+  div[class*="lovable"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 }
