@@ -117,7 +117,10 @@ router.post('/credentials', protect, async (req, res, next) => {
   }
 });
 
-const MASTER_PLAYLIST_URL = 'https://iptv-org.github.io/iptv/index.m3u';
+const MASTER_PLAYLIST_URLS = [
+  'https://iptv-org.github.io/iptv/languages/urd.m3u',
+  'https://iptv-org.github.io/iptv/index.m3u'
+];
 
 // @route   GET /api/iptv/playlist
 // @desc    Fetch and return M3U playlist (Master or User-specific)
@@ -131,44 +134,43 @@ router.get('/playlist', protect, async (req, res, next) => {
       .eq('user_id', req.user.id)
       .single();
     
-    let targetUrl = MASTER_PLAYLIST_URL;
+    let targetUrls = [...MASTER_PLAYLIST_URLS];
     let manualContent = null;
 
     if (credentials) {
       if (credentials.m3u_content) {
         manualContent = credentials.m3u_content;
       } else if (credentials.m3u_url) {
-        targetUrl = credentials.m3u_url;
+        targetUrls = [credentials.m3u_url];
       }
     }
 
-    console.log(`🌐 Final target URL: ${targetUrl}`);
     let playlistContent = '';
 
     if (manualContent) {
       playlistContent = manualContent;
     } else {
-      // Fetch from URL (Master or User's)
-      try {
-        console.log(`🌐 Fetching playlist from: ${targetUrl}`);
-        const response = await axios.get(targetUrl, {
-          timeout: 30000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': '*/*'
-          }
-        });
-        playlistContent = response.data;
-      } catch (err) {
-        console.error('❌ Error fetching playlist:', err.message);
-        // Fallback to Master if user's fails
-        if (targetUrl !== MASTER_PLAYLIST_URL) {
-          console.log('🔄 Falling back to Master Playlist...');
-          const masterRes = await axios.get(MASTER_PLAYLIST_URL);
-          playlistContent = masterRes.data;
-        } else {
-          return res.status(500).json({ success: false, message: 'Failed to load playlist' });
+      // Fetch from URL(s)
+      for (const url of targetUrls) {
+        try {
+          console.log(`🌐 Fetching playlist from: ${url}`);
+          const response = await axios.get(url, {
+            timeout: 30000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': '*/*'
+            }
+          });
+          playlistContent += response.data + '\n';
+        } catch (err) {
+          console.error(`❌ Error fetching playlist from ${url}:`, err.message);
         }
+      }
+
+      if (!playlistContent.trim()) {
+        // Fallback to basic Master if all failed
+        const masterRes = await axios.get(MASTER_PLAYLIST_URLS[1]);
+        playlistContent = masterRes.data;
       }
     }
 
@@ -193,7 +195,7 @@ router.get('/playlist', protect, async (req, res, next) => {
           category = 'Cricket';
         } else if (lowerLine.includes('sports') || lowerLine.includes('football') || lowerLine.includes('ten sports') || lowerLine.includes('ptv sports') || lowerLine.includes('star sports')) {
           category = 'Sports';
-        } else if (lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo') || lowerLine.includes('ary') || lowerLine.includes('hum tv') || lowerLine.includes('ptv')) {
+        } else if (lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo') || lowerLine.includes('ary') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('urdu')) {
           category = 'Pakistani Channels';
         } else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
           category = 'Indian Channels';
