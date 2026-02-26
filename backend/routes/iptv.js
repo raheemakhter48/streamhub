@@ -189,16 +189,16 @@ router.get('/playlist', protect, async (req, res, next) => {
         const lowerLine = line.toLowerCase();
         
         // 1. Check for Urdu/Pakistani Priority
-        if (lowerLine.includes('urdu') || lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo ') || lowerLine.includes('ary ') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('samaa') || lowerLine.includes('express news') || lowerLine.includes('dunya')) {
+        if (lowerLine.includes('urdu') || lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo ') || lowerLine.includes('ary ') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('samaa') || lowerLine.includes('express news') || lowerLine.includes('dunya') || lowerLine.includes('news 18 urdu') || lowerLine.includes('madani channel urdu')) {
           category = 'Pakistani Channels';
         } 
-        // 2. Islamic
+        // 2. Cricket
+        else if (lowerLine.includes('cricket') || lowerLine.includes('psl') || lowerLine.includes('ipl') || lowerLine.includes('t20') || lowerLine.includes('world cup') || lowerLine.includes('willow') || lowerLine.includes('star sports 1 hindi')) {
+          category = 'Cricket';
+        }
+        // 3. Islamic
         else if (lowerLine.includes('islamic') || lowerLine.includes('quran') || lowerLine.includes('madani') || lowerLine.includes('makkah') || lowerLine.includes('prayer')) {
           category = 'Islamic';
-        }
-        // 3. Cricket
-        else if (lowerLine.includes('cricket') || lowerLine.includes('psl') || lowerLine.includes('ipl') || lowerLine.includes('t20') || lowerLine.includes('world cup') || lowerLine.includes('willow')) {
-          category = 'Cricket';
         }
         // 4. Indian
         else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
@@ -208,33 +208,19 @@ router.get('/playlist', protect, async (req, res, next) => {
         else if (lowerLine.includes('sports') || lowerLine.includes('football') || lowerLine.includes('ten sports')) {
           category = 'Sports';
         }
-        // 6. Others
-        else if (lowerLine.includes('kids') || lowerLine.includes('cartoon')) {
-          category = 'Kids';
-        } else if (lowerLine.includes('movie') || lowerLine.includes('cinema') || lowerLine.includes('hbo')) {
-          category = 'Movies';
-        } else if (lowerLine.includes('news')) {
-          category = 'News';
-        }
 
-        // --- NEW INJECTION LOGIC ---
-        // Remove any existing group-title or category tags
-        let cleanInf = line.replace(/group-title="[^"]*"/g, '').replace(/tvg-group="[^"]*"/g, '');
+        // --- IMPROVED INJECTION LOGIC ---
+        // Clean line from existing group titles
+        let cleanInf = line.replace(/group-title="[^"]*"/gi, '').replace(/tvg-group="[^"]*"/gi, '').trim();
         
-        // Inject our category right after the duration (usually -1)
-        // Example: #EXTINF:-1 group-title="Pakistani Channels", CHANNEL NAME
+        // Ensure space after #EXTINF:-1 before adding group-title
         if (cleanInf.includes(',')) {
-          // Use regex to find the comma that separates the attributes from the channel name
-          // This is safer than split(',') because names can contain commas
-          line = cleanInf.replace(/^(#EXTINF:[-0-9\s]+)(.*),(.*)$/, `$1 group-title="${category}"$2,$3`);
+          const lastCommaIndex = cleanInf.lastIndexOf(',');
+          const infoPart = cleanInf.substring(0, lastCommaIndex);
+          const namePart = cleanInf.substring(lastCommaIndex); // Includes the comma
           
-          // Fallback if regex fails to match
-          if (line === cleanInf) {
-            const lastCommaIndex = cleanInf.lastIndexOf(',');
-            const infoPart = cleanInf.substring(0, lastCommaIndex);
-            const namePart = cleanInf.substring(lastCommaIndex + 1);
-            line = `${infoPart} group-title="${category}",${namePart}`;
-          }
+          // Construct: #EXTINF:-1 group-title="Category",Name
+          line = `${infoPart} group-title="${category}"${namePart}`;
         } else {
           line = `${cleanInf} group-title="${category}"`;
         }
