@@ -142,6 +142,7 @@ router.get('/playlist', protect, async (req, res, next) => {
       }
     }
 
+    console.log(`🌐 Final target URL: ${targetUrl}`);
     let playlistContent = '';
 
     if (manualContent) {

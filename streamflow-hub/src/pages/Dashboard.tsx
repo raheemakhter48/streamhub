@@ -107,25 +107,11 @@ const Dashboard = () => {
 
   const loadCredentialsAndChannels = async () => {
     try {
-      const credentialsData = await iptvAPI.getCredentials();
-      
-      if (!credentialsData.success || !credentialsData.data) {
-        setHasCredentials(false);
-        setIsLoading(false);
-        return;
-      }
-
-      const credentials = credentialsData.data;
-      
-      if (credentials.m3uUrl || credentials.m3uContent) {
-        setHasCredentials(true);
-        // Fetch playlist from backend (no CORS issues!)
-        await parseM3UPlaylist();
-      } else {
-        setHasCredentials(false);
-      }
+      // Fetch playlist directly from backend (it will return Master Playlist if no credentials)
+      await parseM3UPlaylist();
+      setHasCredentials(true); // Always set to true since we have Master Playlist as fallback
     } catch (error: any) {
-      console.error("Error loading credentials:", error);
+      console.error("Error loading channels:", error);
       setHasCredentials(false);
     } finally {
       setIsLoading(false);
