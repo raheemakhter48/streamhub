@@ -195,7 +195,7 @@ router.get('/playlist', protect, async (req, res, next) => {
           category = 'Cricket';
         } else if (lowerLine.includes('sports') || lowerLine.includes('football') || lowerLine.includes('ten sports') || lowerLine.includes('ptv sports') || lowerLine.includes('star sports')) {
           category = 'Sports';
-        } else if (lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo') || lowerLine.includes('ary') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('urdu')) {
+        } else if (lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo') || lowerLine.includes('ary') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('urdu') || lowerLine.includes('abb takk') || lowerLine.includes('samaa')) {
           category = 'Pakistani Channels';
         } else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
           category = 'Indian Channels';
@@ -207,11 +207,12 @@ router.get('/playlist', protect, async (req, res, next) => {
           category = 'News';
         }
 
-        // Add or Replace group-title
+        // Add or Replace group-title logic fix
         if (line.includes('group-title="')) {
           line = line.replace(/group-title="[^"]*"/, `group-title="${category}"`);
         } else {
-          line = line.replace('#EXTINF:', `#EXTINF:-1 group-title="${category}",`);
+          // If no group-title exists, inject it right after #EXTINF:-1 or #EXTINF:0
+          line = line.replace(/(#EXTINF:[-0-9]+)/, `$1 group-title="${category}"`);
         }
 
         // Support MPEG-TS URLs specifically
