@@ -119,6 +119,7 @@ router.post('/credentials', protect, async (req, res, next) => {
 
 const MASTER_PLAYLIST_URLS = [
   'https://iptv-org.github.io/iptv/languages/urd.m3u',
+  'https://iptv-org.github.io/iptv/countries/in.m3u',
   'https://iptv-org.github.io/iptv/index.m3u'
 ];
 
@@ -201,7 +202,7 @@ router.get('/playlist', protect, async (req, res, next) => {
           category = 'Islamic';
         }
         // 4. Indian
-        else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
+        else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv') || lowerLine.includes('sab tv') || lowerLine.includes('and tv') || lowerLine.includes('ndtv') || lowerLine.includes('republic') || lowerLine.includes('aaj tak')) {
           category = 'Indian Channels';
         }
         // 5. Sports
