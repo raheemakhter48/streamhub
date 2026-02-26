@@ -188,36 +188,48 @@ router.get('/playlist', protect, async (req, res, next) => {
         let category = 'General';
         const lowerLine = line.toLowerCase();
         
-        // Priority Based Categorization
-        if (lowerLine.includes('islamic') || lowerLine.includes('quran') || lowerLine.includes('madani') || lowerLine.includes('prayer') || lowerLine.includes('makkah')) {
-          category = 'Islamic';
-        } else if (lowerLine.includes('cricket') || lowerLine.includes('psl') || lowerLine.includes('ipl') || lowerLine.includes('t20') || lowerLine.includes('world cup')) {
-          category = 'Cricket';
-        } else if (lowerLine.includes('sports') || lowerLine.includes('football') || lowerLine.includes('ten sports') || lowerLine.includes('ptv sports') || lowerLine.includes('star sports')) {
-          category = 'Sports';
-        } else if (lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo') || lowerLine.includes('ary') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('urdu') || lowerLine.includes('abb takk') || lowerLine.includes('samaa')) {
+        // 1. Check for Urdu/Pakistani Priority
+        if (lowerLine.includes('urdu') || lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo ') || lowerLine.includes('ary ') || lowerLine.includes('hum tv') || lowerLine.includes('ptv') || lowerLine.includes('samaa') || lowerLine.includes('express news') || lowerLine.includes('dunya')) {
           category = 'Pakistani Channels';
-        } else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
+        } 
+        // 2. Islamic
+        else if (lowerLine.includes('islamic') || lowerLine.includes('quran') || lowerLine.includes('madani') || lowerLine.includes('makkah') || lowerLine.includes('prayer')) {
+          category = 'Islamic';
+        }
+        // 3. Cricket
+        else if (lowerLine.includes('cricket') || lowerLine.includes('psl') || lowerLine.includes('ipl') || lowerLine.includes('t20') || lowerLine.includes('world cup') || lowerLine.includes('willow')) {
+          category = 'Cricket';
+        }
+        // 4. Indian
+        else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
           category = 'Indian Channels';
-        } else if (lowerLine.includes('kids') || lowerLine.includes('cartoon') || lowerLine.includes('nick') || lowerLine.includes('pogo')) {
+        }
+        // 5. Sports
+        else if (lowerLine.includes('sports') || lowerLine.includes('football') || lowerLine.includes('ten sports')) {
+          category = 'Sports';
+        }
+        // 6. Others
+        else if (lowerLine.includes('kids') || lowerLine.includes('cartoon')) {
           category = 'Kids';
-        } else if (lowerLine.includes('movie') || lowerLine.includes('hbo') || lowerLine.includes('cinema') || lowerLine.includes('action')) {
+        } else if (lowerLine.includes('movie') || lowerLine.includes('cinema') || lowerLine.includes('hbo')) {
           category = 'Movies';
         } else if (lowerLine.includes('news')) {
           category = 'News';
         }
 
-        // Add or Replace group-title logic fix
-        if (line.includes('group-title="')) {
-          line = line.replace(/group-title="[^"]*"/, `group-title="${category}"`);
+        // --- NEW INJECTION LOGIC ---
+        // Remove any existing group-title or category tags
+        let cleanInf = line.replace(/group-title="[^"]*"/g, '').replace(/tvg-group="[^"]*"/g, '');
+        
+        // Inject our category right after the duration (usually -1)
+        // Example: #EXTINF:-1 group-title="Pakistani Channels", CHANNEL NAME
+        if (cleanInf.includes(',')) {
+          const parts = cleanInf.split(',');
+          const infoPart = parts[0];
+          const namePart = parts.slice(1).join(',');
+          line = `${infoPart} group-title="${category}",${namePart}`;
         } else {
-          // If no group-title exists, inject it right after #EXTINF:-1 or #EXTINF:0
-          line = line.replace(/(#EXTINF:[-0-9]+)/, `$1 group-title="${category}"`);
-        }
-
-        // Support MPEG-TS URLs specifically
-        if (nextLine.toLowerCase().includes('.ts') || nextLine.toLowerCase().includes('/live/')) {
-          // You could add special tags here if needed
+          line = `${cleanInf} group-title="${category}"`;
         }
 
         updatedPlaylist += line + '\n' + nextLine + '\n';
