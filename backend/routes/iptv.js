@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { protect } from '../middleware/auth.js';
-import IPTVCredentials from '../models/IPTVCredentials.js';
+import supabase from '../config/supabase.js';
 
 const router = express.Router();
 
@@ -39,8 +39,16 @@ const generateM3UFromCredentials = (serverUrl, username, password) => {
 // @access  Private
 router.get('/credentials', protect, async (req, res, next) => {
   try {
-    const credentials = await IPTVCredentials.findOne({ user: req.user._id });
+    const { data: credentials, error } = await supabase
+      .from('iptv_credentials')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .single();
     
+    if (error && error.code !== 'PGRST116') { // PGRST116 is 'no rows returned'
+      throw error;
+    }
+
     if (!credentials) {
       return res.json({
         success: true,
@@ -51,11 +59,11 @@ router.get('/credentials', protect, async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        id: credentials._id,
-        providerName: credentials.providerName,
+        id: credentials.id,
+        providerName: credentials.provider_name,
         username: credentials.username ? '***' : null,
-        serverUrl: credentials.serverUrl,
-        m3uUrl: credentials.m3uUrl,
+        serverUrl: credentials.server_url,
+        m3uUrl: credentials.m3u_url,
         hasCredentials: true
       }
     });
@@ -78,27 +86,29 @@ router.post('/credentials', protect, async (req, res, next) => {
       finalM3uUrl = generateM3UFromCredentials(serverUrl, username, password);
     }
 
-    const credentials = await IPTVCredentials.findOneAndUpdate(
-      { user: req.user._id },
-      {
-        user: req.user._id,
-        providerName: providerName || null,
+    const { data: credentials, error } = await supabase
+      .from('iptv_credentials')
+      .upsert({
+        user_id: req.user.id,
+        provider_name: providerName || null,
         username: username || null,
         password: password || null,
-        serverUrl: serverUrl || null,
-        m3uUrl: finalM3uUrl || null,
-        m3uContent: m3uContent || null,
-        updatedAt: Date.now()
-      },
-      { upsert: true, new: true }
-    );
+        server_url: serverUrl || null,
+        m3u_url: finalM3uUrl || null,
+        m3u_content: m3uContent || null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.json({
       success: true,
       message: 'IPTV credentials saved successfully',
       data: {
-        id: credentials._id,
-        providerName: credentials.providerName,
+        id: credentials.id,
+        providerName: credentials.provider_name,
         hasCredentials: true
       }
     });
@@ -107,70 +117,112 @@ router.post('/credentials', protect, async (req, res, next) => {
   }
 });
 
+const MASTER_PLAYLIST_URL = 'https://iptv-org.github.io/iptv/index.m3u';
+
 // @route   GET /api/iptv/playlist
-// @desc    Fetch and return M3U playlist
+// @desc    Fetch and return M3U playlist (Master or User-specific)
 // @access  Private
 router.get('/playlist', protect, async (req, res, next) => {
   try {
-    const credentials = await IPTVCredentials.findOne({ user: req.user._id });
+    // Check if user has custom credentials
+    const { data: credentials, error } = await supabase
+      .from('iptv_credentials')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .single();
     
-    if (!credentials) {
-      return res.status(404).json({
-        success: false,
-        message: 'IPTV credentials not found'
-      });
+    let targetUrl = MASTER_PLAYLIST_URL;
+    let manualContent = null;
+
+    if (credentials) {
+      if (credentials.m3u_content) {
+        manualContent = credentials.m3u_content;
+      } else if (credentials.m3u_url) {
+        targetUrl = credentials.m3u_url;
+      }
     }
 
     let playlistContent = '';
 
-    // If manual content exists, use it
-    if (credentials.m3uContent) {
-      playlistContent = credentials.m3uContent;
-    } else if (credentials.m3uUrl) {
-      // Fetch from URL (server-side, no CORS issues!)
+    if (manualContent) {
+      playlistContent = manualContent;
+    } else {
+      // Fetch from URL (Master or User's)
       try {
-        const response = await axios.get(credentials.m3uUrl, {
+        console.log(`🌐 Fetching playlist from: ${targetUrl}`);
+        const response = await axios.get(targetUrl, {
           timeout: 30000,
           headers: {
-            'User-Agent': 'Mozilla/5.0',
-            'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, text/plain, */*'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
           }
         });
         playlistContent = response.data;
-      } catch (error) {
-        console.error('Error fetching M3U:', error.message);
-        return res.status(500).json({
-          success: false,
-          message: `Failed to fetch playlist: ${error.message}`
-        });
+      } catch (err) {
+        console.error('❌ Error fetching playlist:', err.message);
+        // Fallback to Master if user's fails
+        if (targetUrl !== MASTER_PLAYLIST_URL) {
+          console.log('🔄 Falling back to Master Playlist...');
+          const masterRes = await axios.get(MASTER_PLAYLIST_URL);
+          playlistContent = masterRes.data;
+        } else {
+          return res.status(500).json({ success: false, message: 'Failed to load playlist' });
+        }
       }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'No M3U URL or content found'
-      });
     }
 
-    // Validate M3U format
-    const hasExtInf = playlistContent.includes('#EXTINF');
-    const hasExtM3U = playlistContent.includes('#EXTM3U');
-    const hasHttpUrls = /https?:\/\//.test(playlistContent);
+    // Auto-Categorization Logic
+    const lines = playlistContent.split('\n');
+    let updatedPlaylist = '#EXTM3U\n';
+    
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      
+      if (line.startsWith('#EXTINF:')) {
+        let nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : '';
+        
+        // Categorization based on name
+        let category = 'General';
+        const lowerLine = line.toLowerCase();
+        
+        // Priority Based Categorization
+        if (lowerLine.includes('islamic') || lowerLine.includes('quran') || lowerLine.includes('madani') || lowerLine.includes('prayer') || lowerLine.includes('makkah')) {
+          category = 'Islamic';
+        } else if (lowerLine.includes('cricket') || lowerLine.includes('psl') || lowerLine.includes('ipl') || lowerLine.includes('t20') || lowerLine.includes('world cup')) {
+          category = 'Cricket';
+        } else if (lowerLine.includes('sports') || lowerLine.includes('football') || lowerLine.includes('ten sports') || lowerLine.includes('ptv sports') || lowerLine.includes('star sports')) {
+          category = 'Sports';
+        } else if (lowerLine.includes('(pk)') || lowerLine.includes('pakistan') || lowerLine.includes('geo') || lowerLine.includes('ary') || lowerLine.includes('hum tv') || lowerLine.includes('ptv')) {
+          category = 'Pakistani Channels';
+        } else if (lowerLine.includes('(in)') || lowerLine.includes('india') || lowerLine.includes('star plus') || lowerLine.includes('colors') || lowerLine.includes('sony') || lowerLine.includes('zee tv')) {
+          category = 'Indian Channels';
+        } else if (lowerLine.includes('kids') || lowerLine.includes('cartoon') || lowerLine.includes('nick') || lowerLine.includes('pogo')) {
+          category = 'Kids';
+        } else if (lowerLine.includes('movie') || lowerLine.includes('hbo') || lowerLine.includes('cinema') || lowerLine.includes('action')) {
+          category = 'Movies';
+        } else if (lowerLine.includes('news')) {
+          category = 'News';
+        }
 
-    if (!hasExtInf && !hasExtM3U && !hasHttpUrls) {
-      if (playlistContent.includes('<!DOCTYPE') || playlistContent.includes('<html')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Received HTML instead of M3U playlist'
-        });
+        // Add or Replace group-title
+        if (line.includes('group-title="')) {
+          line = line.replace(/group-title="[^"]*"/, `group-title="${category}"`);
+        } else {
+          line = line.replace('#EXTINF:', `#EXTINF:-1 group-title="${category}",`);
+        }
+
+        // Support MPEG-TS URLs specifically
+        if (nextLine.toLowerCase().includes('.ts') || nextLine.toLowerCase().includes('/live/')) {
+          // You could add special tags here if needed
+        }
+
+        updatedPlaylist += line + '\n' + nextLine + '\n';
+        i++; // Skip the URL line
       }
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid M3U format'
-      });
     }
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.send(playlistContent);
+    res.send(updatedPlaylist);
   } catch (error) {
     next(error);
   }

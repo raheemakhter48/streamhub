@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import supabase from '../config/supabase.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -10,28 +10,37 @@ export const protect = async (req, res, next) => {
     }
 
     if (!token) {
+      console.log('⚠️ No token found in headers');
       return res.status(401).json({
         success: false,
-        message: 'Not authorized to access this route'
+        message: 'Not authorized, no token'
       });
     }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select('-password');
       
-      if (!req.user) {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('id', decoded.id)
+        .single();
+      
+      if (error || !user) {
+        console.error('❌ User not found in Supabase:', error?.message);
         return res.status(401).json({
           success: false,
           message: 'User not found'
         });
       }
 
+      req.user = user;
       next();
     } catch (error) {
+      console.error('❌ JWT Verification failed:', error.message);
       return res.status(401).json({
         success: false,
-        message: 'Not authorized to access this route'
+        message: 'Not authorized, token failed'
       });
     }
   } catch (error) {

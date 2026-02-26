@@ -1,7 +1,6 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
-import Favorite from '../models/Favorite.js';
-import RecentlyWatched from '../models/RecentlyWatched.js';
+import supabase from '../config/supabase.js';
 
 const router = express.Router();
 
@@ -12,18 +11,23 @@ const router = express.Router();
 // @access  Private
 router.get('/', protect, async (req, res, next) => {
   try {
-    const favorites = await Favorite.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
+    const { data: favorites, error } = await supabase
+      .from('favorites')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
 
     res.json({
       success: true,
       data: favorites.map(fav => ({
-        id: fav._id,
-        channelName: fav.channelName,
-        channelUrl: fav.channelUrl,
-        channelLogo: fav.channelLogo,
+        id: fav.id,
+        channelName: fav.channel_name,
+        channelUrl: fav.channel_url,
+        channelLogo: fav.channel_logo,
         category: fav.category,
-        createdAt: fav.createdAt
+        createdAt: fav.created_at
       }))
     });
   } catch (error) {
@@ -46,10 +50,12 @@ router.post('/', protect, async (req, res, next) => {
     }
 
     // Check if already favorited
-    const existing = await Favorite.findOne({
-      user: req.user._id,
-      channelUrl
-    });
+    const { data: existing } = await supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('channel_url', channelUrl)
+      .single();
 
     if (existing) {
       return res.status(400).json({
@@ -58,32 +64,34 @@ router.post('/', protect, async (req, res, next) => {
       });
     }
 
-    const favorite = await Favorite.create({
-      user: req.user._id,
-      channelName,
-      channelUrl,
-      channelLogo: channelLogo || null,
-      category: category || null
-    });
+    const { data: favorite, error } = await supabase
+      .from('favorites')
+      .insert([
+        {
+          user_id: req.user.id,
+          channel_name: channelName,
+          channel_url: channelUrl,
+          channel_logo: channelLogo || null,
+          category: category || null
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
       message: 'Added to favorites',
       data: {
-        id: favorite._id,
-        channelName: favorite.channelName,
-        channelUrl: favorite.channelUrl,
-        channelLogo: favorite.channelLogo,
+        id: favorite.id,
+        channelName: favorite.channel_name,
+        channelUrl: favorite.channel_url,
+        channelLogo: favorite.channel_logo,
         category: favorite.category
       }
     });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Channel already in favorites'
-      });
-    }
     next(error);
   }
 });
@@ -96,17 +104,13 @@ router.delete('/:channelUrl', protect, async (req, res, next) => {
     const { channelUrl } = req.params;
     const decodedUrl = decodeURIComponent(channelUrl);
 
-    const favorite = await Favorite.findOneAndDelete({
-      user: req.user._id,
-      channelUrl: decodedUrl
-    });
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', req.user.id)
+      .eq('channel_url', decodedUrl);
 
-    if (!favorite) {
-      return res.status(404).json({
-        success: false,
-        message: 'Favorite not found'
-      });
-    }
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -124,19 +128,24 @@ router.delete('/:channelUrl', protect, async (req, res, next) => {
 // @access  Private
 router.get('/recently-watched', protect, async (req, res, next) => {
   try {
-    const recentlyWatched = await RecentlyWatched.find({ user: req.user._id })
-      .sort({ watchedAt: -1 })
+    const { data: recent, error } = await supabase
+      .from('recently_watched')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('watched_at', { ascending: false })
       .limit(10);
+
+    if (error) throw error;
 
     res.json({
       success: true,
-      data: recentlyWatched.map(item => ({
-        id: item._id,
-        channelName: item.channelName,
-        channelUrl: item.channelUrl,
-        channelLogo: item.channelLogo,
+      data: recent.map(item => ({
+        id: item.id,
+        channelName: item.channel_name,
+        channelUrl: item.channel_url,
+        channelLogo: item.channel_logo,
         category: item.category,
-        watchedAt: item.watchedAt
+        watchedAt: item.watched_at
       }))
     });
   } catch (error) {
@@ -158,31 +167,23 @@ router.post('/recently-watched', protect, async (req, res, next) => {
       });
     }
 
-    // Delete existing entry to avoid duplicates
-    await RecentlyWatched.deleteOne({
-      user: req.user._id,
-      channelUrl
-    });
+    // Add or update recently watched
+    const { error } = await supabase
+      .from('recently_watched')
+      .upsert({
+        user_id: req.user.id,
+        channel_name: channelName,
+        channel_url: channelUrl,
+        channel_logo: channelLogo || null,
+        category: category || null,
+        watched_at: new Date().toISOString()
+      }, { onConflict: 'user_id, channel_url' });
 
-    // Insert new entry
-    const recentlyWatched = await RecentlyWatched.create({
-      user: req.user._id,
-      channelName,
-      channelUrl,
-      channelLogo: channelLogo || null,
-      category: category || null
-    });
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
-      data: {
-        id: recentlyWatched._id,
-        channelName: recentlyWatched.channelName,
-        channelUrl: recentlyWatched.channelUrl,
-        channelLogo: recentlyWatched.channelLogo,
-        category: recentlyWatched.category,
-        watchedAt: recentlyWatched.watchedAt
-      }
+      message: 'Added to recently watched'
     });
   } catch (error) {
     next(error);
