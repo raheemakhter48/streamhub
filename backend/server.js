@@ -1,66 +1,44 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
-import compression from 'compression';
 import dotenv from 'dotenv';
-import connectDB from './config/db.js';
-import rateLimit from 'express-rate-limit';
 
-// Load environment variables
-dotenv.config();
-
-// Import routes
+// Routes import
 import authRoutes from './routes/auth.js';
 import iptvRoutes from './routes/iptv.js';
 import favoritesRoutes from './routes/favorites.js';
 import streamRoutes from './routes/stream.js';
 
+dotenv.config();
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 7860;
 
-// Connect to MongoDB
-connectDB();
+// Trust reverse proxy (Hugging Face / Cloudflare / Nginx)
+app.set('trust proxy', true);
 
-// Middleware
-// Configure helmet to allow video streaming
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      mediaSrc: ["'self'", "*", "blob:", "data:"],
-      connectSrc: ["'self'", "*"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Allow embedding video
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resources
-}));
-app.use(compression({
-  filter: (req, res) => {
-    // Don't compress video streams
-    if (req.path.includes('/api/stream/proxy')) {
-      return false;
-    }
-    return compression.filter(req, res);
-  }
-}));
-app.use(cors({
-  origin: '*', // Allow all origins for mobile app
-  credentials: true,
-  exposedHeaders: ['Content-Type', 'Content-Length', 'Accept-Ranges']
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Basic Middleware
+app.use(cors());
+app.use(express.json());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+// Request Logger (Hugging Face logs mein nazar ayega)
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
-app.use('/api/', limiter);
 
-// Health check
+// Health check (Isse pata chalega server zinda hai)
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    port: PORT,
+    env: process.env.NODE_ENV || 'not set'
+  });
+});
+
+// Root route (Hugging Face default page ke liye)
+app.get('/', (req, res) => {
+  res.send('StreamFlow API is Running! Use /health to check status.');
 });
 
 // API Routes
@@ -69,26 +47,20 @@ app.use('/api/iptv', iptvRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/stream', streamRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
-
-// 404 handler
+// 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+  res.status(404).json({ success: false, message: `Route ${req.url} not found on this server` });
 });
 
-// Start server - listen on all interfaces (0.0.0.0) to allow mobile app connections
+// Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ success: false, message: 'Internal Server Error' });
+});
+
+// Start server - 0.0.0.0 is MANDATORY for Hugging Face
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 Accessible at: http://localhost:${PORT} and http://192.168.16.105:${PORT}`);
+  console.log(`🚀 Server is listening on 0.0.0.0:${PORT}`);
 });
 
 export default app;

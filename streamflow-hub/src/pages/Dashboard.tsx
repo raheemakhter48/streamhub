@@ -259,7 +259,40 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const categories = ["All", ...Array.from(new Set(channels.map((ch) => ch.group || "Other")))];
+  const categories = useMemo(() => {
+    const allGroups = Array.from(new Set(channels.map((ch) => ch.group || "Other")));
+    
+    // Define the preferred order for our special categories
+    const preferredOrder = [
+      "All",
+      "Cricket",
+      "Pakistani Channels",
+      "Indian Channels",
+      "Islamic",
+      "Sports",
+      "News",
+      "Kids",
+      "Movies",
+      "General"
+    ];
+
+    // Sort: Preferred order first, then alphabetical for the rest
+    return [
+      "All",
+      ...allGroups
+        .filter(g => g !== "All")
+        .sort((a, b) => {
+          const indexA = preferredOrder.indexOf(a);
+          const indexB = preferredOrder.indexOf(b);
+          
+          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+          if (indexA !== -1) return -1;
+          if (indexB !== -1) return 1;
+          
+          return a.localeCompare(b);
+        })
+    ];
+  }, [channels]);
 
   if (isLoading) {
     return (

@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import supabase from '../config/supabase.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -27,22 +28,42 @@ router.post('/register', async (req, res, next) => {
     }
 
     // Check if user exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (existingUser) {
       return res.status(400).json({
         success: false,
         message: 'User already exists'
       });
     }
 
-    // Create user
-    const user = await User.create({ email, password });
+    // Hash password
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create user in Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert([
+        { 
+          email: email.toLowerCase(), 
+          password: hashedPassword 
+        }
+      ])
+      .select('id, email')
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
-      token: generateToken(user._id),
+      token: generateToken(user.id),
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email
       }
     });
@@ -65,16 +86,22 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
-    // Check if user exists and password matches
-    const user = await User.findOne({ email }).select('+password');
-    if (!user) {
+    // Check if user exists
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, password')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (error || !user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    const isMatch = await user.comparePassword(password);
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -84,9 +111,9 @@ router.post('/login', async (req, res, next) => {
 
     res.json({
       success: true,
-      token: generateToken(user._id),
+      token: generateToken(user.id),
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email
       }
     });
@@ -98,17 +125,17 @@ router.post('/login', async (req, res, next) => {
 // @route   GET /api/auth/me
 // @desc    Get current user
 // @access  Private
-router.get('/me', protect, async (req, res, next) => {
+router.get('/me', protect, async (req, res) => {
   try {
     res.json({
       success: true,
       user: {
-        id: req.user._id,
+        id: req.user.id,
         email: req.user.email
       }
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

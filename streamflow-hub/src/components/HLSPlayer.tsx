@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+import mpegts from "mpegts.js";
 import { Loader2, AlertCircle, Play, Maximize, Minimize } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { streamAPI } from "@/lib/api";
@@ -13,262 +14,186 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const mpegtsRef = useRef<mpegts.Player | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 5;
 
-  // Check if this is an HLS stream (.m3u8) - check ORIGINAL URL, not proxy URL
+  // Check if this is an HLS stream (.m3u8)
   const isHlsStream = !!url && (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('m3u'));
+  
+  // Check if this is an MPEG-TS stream (.ts)
+  const isMpegTsStream = !!url && (url.toLowerCase().includes('.ts') || url.toLowerCase().includes('/live/'));
 
-  // Use proxy URL if enabled (for HLS streams, proxy helps with manifest rewriting)
-  // For non-HLS streams, we can try direct or proxy based on CORS
+  // Use proxy URL if enabled
   const streamUrl = useProxy && url ? streamAPI.getProxyUrl(url) : url;
 
   useEffect(() => {
     if (!videoRef.current || !streamUrl) return;
 
     const video = videoRef.current;
-
-    // If NOT an HLS stream, use native video player directly
-    if (!isHlsStream) {
-      console.log('Using native video player for non-HLS stream:', url);
-      setIsLoading(true);
-      setError(null);
-
-      // For non-HLS streams, use proxy first (avoids CORS issues)
-      // VLC works because it doesn't have CORS restrictions
-      const directUrl = url;
-      const proxyUrl = useProxy ? streamAPI.getProxyUrl(url) : url;
-      
-      // Set crossOrigin to handle CORS properly
-      video.crossOrigin = 'anonymous';
-      video.preload = 'auto';
-      
-      // Try proxy URL first (better for CORS)
-      console.log('Trying proxy URL first:', proxyUrl);
-      video.src = proxyUrl;
-
-      video.addEventListener('loadedmetadata', () => {
-        setIsLoading(false);
-        setError(null);
-        setRetryCount(0);
-        video.play().catch(() => {
-          // Autoplay blocked
-        });
-      });
-
-      video.addEventListener('error', async (e) => {
-        console.error('Video error:', e);
-        const videoElement = e.target as HTMLVideoElement;
-        const currentSrc = videoElement.src;
-        const errorCode = videoElement.error?.code;
-        const errorMessage = videoElement.error?.message || '';
-        
-        console.log('Video error details:', {
-          code: errorCode,
-          message: errorMessage,
-          currentSrc: currentSrc.substring(0, 100),
-          directUrl: directUrl.substring(0, 100),
-          proxyUrl: proxyUrl?.substring(0, 100)
-        });
-        
-        // If proxy URL fails, try direct URL as fallback
-        if (currentSrc === proxyUrl || currentSrc.includes('/api/stream/proxy')) {
-          console.log('Proxy URL failed, trying direct URL as fallback:', directUrl);
-          setIsLoading(true);
-          setError('Trying direct connection...');
-          
-          // Remove crossOrigin for direct URL (might help)
-          video.crossOrigin = null;
-          video.src = directUrl;
-          video.load();
-        } else {
-          // Both proxy and direct failed
-          setIsLoading(false);
-          console.error('Both proxy and direct URL failed. Error code:', errorCode);
-          
-          // Check error code for more specific messages
-          if (errorCode === 4) { // MEDIA_ELEMENT_ERROR: Format error
-            setError('Stream format not supported by browser. VLC player works perfectly - click "Open In" → "VLC Player" for best experience.');
-          } else if (errorCode === 2) { // MEDIA_ELEMENT_ERROR: Network error
-            setError('Network error: Browser cannot reach stream. VLC works - try opening in VLC player using the "Open In" button.');
-          } else {
-            // Try to check proxy status
-            try {
-              const proxyResponse = await fetch(proxyUrl, { 
-                method: 'HEAD',
-                signal: AbortSignal.timeout(5000)
-              });
-              
-              if (!proxyResponse.ok) {
-                const errorText = await proxyResponse.text().catch(() => '');
-                let errorData;
-                try {
-                  errorData = JSON.parse(errorText);
-                } catch {
-                  errorData = { message: proxyResponse.statusText };
-                }
-                
-                setError(`Stream unavailable (${proxyResponse.status}): ${errorData.message || 'Server error'}. VLC player works - click "Open In" → "VLC Player" for best experience.`);
-              } else {
-                setError('Stream format may not be supported by browser. VLC player works perfectly - use "Open In" → "VLC Player" for best experience.');
-              }
-            } catch (fetchError: any) {
-              console.error('Fetch error:', fetchError);
-              setError('Browser cannot play this stream format. VLC player works perfectly! Click "Open In" → "VLC Player" for best experience.');
-            }
-          }
-        }
-      });
-
-      return () => {
-        video.removeAttribute('src');
-        video.load();
-      };
-    }
-
-    // For HLS streams, use Hls.js
-    // Check if HLS is supported
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 10, // Very low buffer for zero buffering
-        maxBufferLength: 10,
-        maxMaxBufferLength: 20,
-        maxBufferSize: 30 * 1000 * 1000, // 30MB - reduced for faster start
-        maxBufferHole: 0.3,
-        highBufferWatchdogPeriod: 1,
-        nudgeOffset: 0.1,
-        nudgeMaxRetry: 5,
-        maxFragLoadingTimeOut: 20000, // Increased for slow connections
-        fragLoadingTimeOut: 20000,
-        manifestLoadingTimeOut: 20000, // Increased from 8s to 20s
-        startLevel: -1, // Auto quality selection
-        capLevelToPlayerSize: true, // Auto quality based on player size
-        autoStartLoad: true,
-        xhrSetup: (xhr, url) => {
-          // Handle CORS for video streams
-          xhr.withCredentials = false;
-          // Some IPTV providers need specific headers
-          try {
-            xhr.setRequestHeader("Accept", "*/*");
-            xhr.setRequestHeader("User-Agent", "Mozilla/5.0");
-          } catch (e) {
-            // Ignore if header can't be set
-          }
-        },
-        debug: false,
-      });
-
-      hlsRef.current = hls;
-
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setIsLoading(false);
-        setError(null);
-        setRetryCount(0);
-        // Auto-play if possible
-        video.play().catch(() => {
-          // Autoplay blocked, user will need to click play
-        });
-      });
-
-      hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-        console.log("Quality switched to:", data.level);
-      });
-
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        console.error("HLS Error:", data);
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              // Handle manifest load timeout specifically
-              if (data.details === "manifestLoadTimeOut" || data.details === "manifestLoadError") {
-                if (retryCount < maxRetries) {
-                  setRetryCount((prev) => prev + 1);
-                  setError(`Reconnecting... (${retryCount + 1}/${maxRetries})`);
-                  setTimeout(() => {
-                    // Try reloading the source with retry
-                    hls.startLoad();
-                  }, 2000);
-                } else {
-                  setError("Stream unavailable - This channel may be down or the URL format is incorrect. Please try another channel.");
-                  hls.destroy();
-                  setIsLoading(false);
-                }
-              } else if (retryCount < maxRetries) {
-                setRetryCount((prev) => prev + 1);
-                setError(`Reconnecting... (${retryCount + 1}/${maxRetries})`);
-                setTimeout(() => {
-                  hls.startLoad();
-                }, 1000);
-              } else {
-                setError("Network error - please check your connection or try another channel");
-                hls.destroy();
-                setIsLoading(false);
-              }
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              setError("Recovering from media error...");
-              hls.recoverMediaError();
-              break;
-            default:
-              if (retryCount < maxRetries) {
-                setRetryCount((prev) => prev + 1);
-                setTimeout(() => {
-                  hls.destroy();
-                  hls.loadSource(url);
-                  hls.attachMedia(video);
-                }, 2000);
-              } else {
-                setError("Stream error - cannot recover. Please try another channel.");
-                hls.destroy();
-                setIsLoading(false);
-              }
-              break;
-          }
-        } else {
-          // Non-fatal errors, just log
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            console.warn("Network warning:", data);
-          }
-        }
-      });
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Native HLS support (Safari)
-      video.src = streamUrl;
-      video.addEventListener("loadedmetadata", () => {
-        setIsLoading(false);
-        setError(null);
-        video.play().catch(() => {});
-      });
-      video.addEventListener("error", () => {
-        if (retryCount < maxRetries) {
-          setRetryCount((prev) => prev + 1);
-          setTimeout(() => {
-            video.load();
-          }, 1000);
-        } else {
-          setError("Failed to load video");
-        }
-      });
-    } else {
-      setError("HLS is not supported in this browser");
-    }
-
-    return () => {
+    
+    // Cleanup previous players
+    const cleanup = () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      if (mpegtsRef.current) {
+        mpegtsRef.current.destroy();
+        mpegtsRef.current = null;
+      }
+      video.removeAttribute('src');
+      video.load();
     };
-  }, [streamUrl, retryCount, isHlsStream, url, useProxy]);
+
+    cleanup();
+
+    // --- CASE 1: MPEG-TS Stream (.ts) ---
+    if (isMpegTsStream && mpegts.getFeatureList().mseLivePlayback) {
+      console.log('🚀 Using mpegts.js for stream:', url);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const player = mpegts.createPlayer({
+          type: 'mse',
+          isLive: true,
+          url: streamUrl,
+          cors: true,
+          withCredentials: false
+        }, {
+          enableWorker: true,
+          enableStashBuffer: false,
+          stashInitialSize: 128,
+          lazyLoad: false,
+          autoCleanupSourceBuffer: true
+        });
+
+        mpegtsRef.current = player;
+        player.attachMediaElement(video);
+        player.load();
+        
+        const playPromise = player.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Autoplay blocked - show manual play button if needed
+          });
+        }
+
+        player.on(mpegts.Events.ERROR, (type, detail, info) => {
+          console.error('❌ MPEG-TS Error:', type, detail, info);
+          // Only show error if it's fatal or not recovering
+          if (detail === 'network_unauthorized' || detail === 'network_forbidden') {
+            setError(`Stream access denied (401/403).`);
+          } else if (detail === 'network_not_found') {
+            setError(`Stream URL not found (404).`);
+          } else {
+            setError(`Stream Error: ${detail}. Use "Open In" → "VLC Player" if it fails.`);
+          }
+          setIsLoading(false);
+        });
+
+        player.on(mpegts.Events.LOADING_COMPLETE, () => {
+          setIsLoading(false);
+          setError(null);
+        });
+
+        player.on(mpegts.Events.METADATA_ARRIVED, () => {
+          setIsLoading(false);
+          setError(null);
+        });
+      } catch (err: any) {
+        console.error('❌ mpegts creation error:', err);
+        setError('Player initialization failed.');
+        setIsLoading(false);
+      }
+
+      return cleanup;
+    }
+
+    // --- CASE 2: HLS Stream (.m3u8) ---
+    if (isHlsStream) {
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 10,
+          maxBufferLength: 10,
+          maxMaxBufferLength: 20,
+          maxBufferSize: 30 * 1000 * 1000,
+          maxBufferHole: 0.3,
+          highBufferWatchdogPeriod: 1,
+          nudgeOffset: 0.1,
+          nudgeMaxRetry: 5,
+          maxFragLoadingTimeOut: 20000,
+          fragLoadingTimeOut: 20000,
+          manifestLoadingTimeOut: 20000,
+          startLevel: -1,
+          capLevelToPlayerSize: true,
+          autoStartLoad: true,
+          xhrSetup: (xhr) => {
+            xhr.withCredentials = false;
+          },
+        });
+
+        hlsRef.current = hls;
+        hls.loadSource(streamUrl);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsLoading(false);
+          setError(null);
+          video.play().catch(() => {});
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            console.error('❌ HLS Fatal Error:', data);
+            setError('Stream format error. Click "Open In" → "VLC Player" for best results.');
+            setIsLoading(false);
+            hls.destroy();
+          }
+        });
+
+        return cleanup;
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        // Native Safari support
+        video.src = streamUrl;
+        video.addEventListener("loadedmetadata", () => {
+          setIsLoading(false);
+          setError(null);
+          video.play().catch(() => {});
+        });
+        return cleanup;
+      }
+    }
+
+    // --- CASE 3: Fallback Native Player ---
+    console.log('🎬 Using native video player fallback');
+    video.src = streamUrl;
+    
+    const handleLoaded = () => {
+      setIsLoading(false);
+      setError(null);
+      video.play().catch(() => {});
+    };
+
+    const handleError = () => {
+      setError('Browser cannot play this stream format. Use "Open In" → "VLC Player" for best experience.');
+      setIsLoading(false);
+    };
+
+    video.addEventListener('loadedmetadata', handleLoaded);
+    video.addEventListener('error', handleError);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoaded);
+      video.removeEventListener('error', handleError);
+      cleanup();
+    };
+  }, [streamUrl, isHlsStream, isMpegTsStream]);
 
   const handlePlay = () => {
     if (videoRef.current) {
@@ -326,96 +251,107 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
 
   if (!streamUrl) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-black">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-          <p className="text-white">No stream URL provided</p>
-        </div>
+      <div className="aspect-video bg-black flex items-center justify-center text-white">
+        <p>No stream URL provided</p>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-black">
+    <div 
+      ref={containerRef}
+      className="relative aspect-video bg-black group overflow-hidden rounded-lg shadow-2xl"
+    >
       <video
         ref={videoRef}
-        controls
         className="w-full h-full"
         onPlay={handleVideoPlay}
         onPause={handleVideoPause}
         playsInline
-        preload="auto"
-        crossOrigin="anonymous"
-        muted={false}
       />
 
-      {/* Fullscreen Button */}
-      <Button
-        onClick={toggleFullscreen}
-        size="icon"
-        variant="ghost"
-        className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white"
-      >
-        {isFullscreen ? (
-          <Minimize className="w-5 h-5" />
-        ) : (
-          <Maximize className="w-5 h-5" />
-        )}
-      </Button>
-
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
-            <p className="text-white">Loading stream...</p>
+      {/* Loading Overlay */}
+      {isLoading && !error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="text-white text-sm animate-pulse">Loading stream...</p>
           </div>
         </div>
       )}
 
-      {error && !error.includes("Reconnecting") && !error.includes("Recovering") && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-          <div className="text-center max-w-md px-4">
-            <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-            <p className="text-white mb-4">{error}</p>
-            <Button
-              onClick={() => {
-                setRetryCount(0);
-                if (hlsRef.current) {
-                  hlsRef.current.destroy();
-                }
-                if (videoRef.current) {
-                  videoRef.current.load();
-                }
-                window.location.reload();
-              }}
-              variant="outline"
+      {/* Error Overlay */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 px-6">
+          <div className="flex flex-col items-center gap-4 text-center max-w-md">
+            <div className="bg-red-500/20 p-3 rounded-full">
+              <AlertCircle className="w-10 h-10 text-red-500" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-white font-semibold">Playback Error</h3>
+              <p className="text-gray-400 text-sm">{error}</p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+              className="mt-2"
             >
-              Retry
+              Retry Connection
             </Button>
           </div>
         </div>
       )}
 
-      {error && (error.includes("Reconnecting") || error.includes("Recovering")) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
-            <p className="text-white">{error}</p>
+      {/* Play/Pause Overlay (when paused) */}
+      {!isPlaying && !isLoading && !error && (
+        <div 
+          className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer z-10"
+          onClick={handlePlay}
+        >
+          <div className="bg-primary/90 p-5 rounded-full shadow-lg transform transition-transform hover:scale-110 active:scale-95">
+            <Play className="w-10 h-10 text-white fill-current" />
           </div>
         </div>
       )}
 
-      {!isPlaying && !isLoading && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-          <Button
-            onClick={handlePlay}
-            size="lg"
-            className="w-20 h-20 rounded-full bg-primary hover:bg-primary/90"
-          >
-            <Play className="w-10 h-10 fill-current" />
-          </Button>
+      {/* Controls Overlay (appears on hover) */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={() => isPlaying ? videoRef.current?.pause() : videoRef.current?.play()}
+            >
+              {isPlaying ? (
+                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              ) : (
+                <Play className="w-6 h-6 fill-current" />
+              )}
+            </Button>
+            
+            <div className="text-white text-xs font-medium bg-red-600 px-2 py-0.5 rounded-sm animate-pulse">
+              LIVE
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={toggleFullscreen}
+            >
+              {isFullscreen ? (
+                <Minimize className="w-5 h-5" />
+              ) : (
+                <Maximize className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

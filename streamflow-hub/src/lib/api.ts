@@ -1,5 +1,5 @@
 // API Client for Backend
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = 'https://raheemakhter-streamflow-api.hf.space/api';
 
 // Get auth token from localStorage
 const getToken = () => {
@@ -34,8 +34,9 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    if (data.token) {
-      localStorage.setItem('auth_token', data.token);
+    const token = data.token || data.data?.token;
+    if (token) {
+      localStorage.setItem('auth_token', token);
     }
     return data;
   },
@@ -45,8 +46,9 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    if (data.token) {
-      localStorage.setItem('auth_token', data.token);
+    const token = data.token || data.data?.token;
+    if (token) {
+      localStorage.setItem('auth_token', token);
     }
     return data;
   },
