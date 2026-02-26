@@ -224,10 +224,17 @@ router.get('/playlist', protect, async (req, res, next) => {
         // Inject our category right after the duration (usually -1)
         // Example: #EXTINF:-1 group-title="Pakistani Channels", CHANNEL NAME
         if (cleanInf.includes(',')) {
-          const parts = cleanInf.split(',');
-          const infoPart = parts[0];
-          const namePart = parts.slice(1).join(',');
-          line = `${infoPart} group-title="${category}",${namePart}`;
+          // Use regex to find the comma that separates the attributes from the channel name
+          // This is safer than split(',') because names can contain commas
+          line = cleanInf.replace(/^(#EXTINF:[-0-9\s]+)(.*),(.*)$/, `$1 group-title="${category}"$2,$3`);
+          
+          // Fallback if regex fails to match
+          if (line === cleanInf) {
+            const lastCommaIndex = cleanInf.lastIndexOf(',');
+            const infoPart = cleanInf.substring(0, lastCommaIndex);
+            const namePart = cleanInf.substring(lastCommaIndex + 1);
+            line = `${infoPart} group-title="${category}",${namePart}`;
+          }
         } else {
           line = `${cleanInf} group-title="${category}"`;
         }
