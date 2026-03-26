@@ -3,7 +3,7 @@ import { authAPI, iptvAPI, favoritesAPI, recentlyWatchedAPI } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, Search, Settings, Tv, Heart, Clock, Moon, Sun, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, Search, Settings, Tv, Star, Clock, Moon, Sun, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import ChannelCard from "@/components/ChannelCard";
@@ -348,7 +348,7 @@ const Dashboard = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/setup")}
+                onClick={() => navigate("/settings")}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
@@ -394,7 +394,7 @@ const Dashboard = () => {
         {favorites.length > 0 && !showFavoritesOnly && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Heart className="w-5 h-5 text-primary fill-primary" />
+              <Star className="w-5 h-5 text-primary fill-primary" />
               <h2 className="text-2xl font-bold">Favorites</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
@@ -432,7 +432,7 @@ const Dashboard = () => {
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className="gap-2"
             >
-              <Heart className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
+              <Star className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
               Favorites
             </Button>
           </div>

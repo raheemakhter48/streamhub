@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Play, Tv, Zap, Heart, Shield } from "lucide-react";
+import { Play, Tv, Zap, Star, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { authAPI } from "@/lib/api";
