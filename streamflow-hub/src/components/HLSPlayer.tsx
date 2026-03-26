@@ -24,9 +24,9 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
   const preferredPlayer = localStorage.getItem("preferred_player") || "auto";
   const useProxyPreference = localStorage.getItem("use_proxy") !== "false";
 
-  // Check stream type
-  const isHlsStream = !!url && (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('m3u'));
-  const isMpegTsStream = !!url && (url.toLowerCase().includes('.ts') || url.toLowerCase().includes('/live/'));
+  // Check stream type - HLS should take priority for .m3u8
+  const isHlsStream = !!url && (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('m3u_plus'));
+  const isMpegTsStream = !!url && (url.toLowerCase().includes('.ts') || (url.toLowerCase().includes('/live/') && !url.toLowerCase().includes('.m3u8')));
 
   // Use proxy URL if enabled
   const streamUrl = useProxyPreference && url ? streamAPI.getProxyUrl(url) : url;
@@ -53,52 +53,9 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
 
     // Decision logic based on preference
     const shouldRunMpegTs = (preferredPlayer === 'mpegts') || (preferredPlayer === 'auto' && isMpegTsStream);
-    const shouldRunHls = (preferredPlayer === 'hls') || (preferredPlayer === 'auto' && isHlsStream && !shouldRunMpegTs);
+    const shouldRunHls = (preferredPlayer === 'hls') || (preferredPlayer === 'auto' && isHlsStream);
 
-    // --- CASE 1: MPEG-TS Player ---
-    if (shouldRunMpegTs && mpegts.getFeatureList().mseLivePlayback) {
-      console.log('🚀 Using mpegts.js (Preference:', preferredPlayer, ')');
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const player = mpegts.createPlayer({
-          type: 'mse',
-          isLive: true,
-          url: streamUrl,
-          cors: true,
-          withCredentials: false
-        }, {
-          enableWorker: true,
-          enableStashBuffer: false,
-          stashInitialSize: 128,
-          lazyLoad: false,
-          autoCleanupSourceBuffer: true
-        });
-
-        mpegtsRef.current = player;
-        player.attachMediaElement(video);
-        player.load();
-        player.play().catch(() => {});
-
-        player.on(mpegts.Events.ERROR, (type, detail) => {
-          console.error('❌ MPEG-TS Error:', detail);
-          setError(`MPEG-TS Error: ${detail}`);
-          setIsLoading(false);
-        });
-
-        player.on(mpegts.Events.METADATA_ARRIVED, () => {
-          setIsLoading(false);
-          setError(null);
-        });
-      } catch (err) {
-        setError('MPEG-TS Player failed to initialize.');
-        setIsLoading(false);
-      }
-      return cleanup;
-    }
-
-    // --- CASE 2: HLS Player ---
+    // --- CASE 1: HLS Player (Priority for HLS) ---
     if (shouldRunHls && Hls.isSupported()) {
       console.log('🚀 Using HLS.js (Preference:', preferredPlayer, ')');
       const hls = new Hls({
@@ -125,6 +82,51 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
         }
       });
 
+      return cleanup;
+    }
+
+    // --- CASE 2: MPEG-TS Player ---
+    if (shouldRunMpegTs && mpegts.getFeatureList().mseLivePlayback) {
+      console.log('🚀 Using mpegts.js (Preference:', preferredPlayer, ')');
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const player = mpegts.createPlayer({
+          type: 'mse',
+          isLive: true,
+          url: streamUrl,
+          cors: true,
+          withCredentials: false
+        }, {
+          enableWorker: true,
+          enableStashBuffer: false,
+          stashInitialSize: 128,
+          lazyLoad: false,
+          autoCleanupSourceBuffer: true
+        });
+
+        mpegtsRef.current = player;
+        player.attachMediaElement(video);
+        player.load();
+        
+        // Use any cast to fix TypeScript error for .play()
+        (player.play() as any)?.catch(() => {});
+
+        player.on(mpegts.Events.ERROR, (type, detail) => {
+          console.error('❌ MPEG-TS Error:', detail);
+          setError(`MPEG-TS Error: ${detail}`);
+          setIsLoading(false);
+        });
+
+        player.on(mpegts.Events.METADATA_ARRIVED, () => {
+          setIsLoading(false);
+          setError(null);
+        });
+      } catch (err) {
+        setError('MPEG-TS Player failed to initialize.');
+        setIsLoading(false);
+      }
       return cleanup;
     }
 
