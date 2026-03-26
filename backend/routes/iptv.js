@@ -124,58 +124,85 @@ const MASTER_PLAYLIST_URLS = [
 ];
 
 // @route   GET /api/iptv/playlist
-// @desc    Fetch and return M3U playlist (Master or User-specific)
+// @desc    Fetch and return M3U playlist (Master or User-specific) with caching
 // @access  Private
 router.get('/playlist', protect, async (req, res, next) => {
   try {
-    // Check if user has custom credentials
-    const { data: credentials, error } = await supabase
+    const userId = req.user.id;
+    const CACHE_EXPIRY_HOURS = 24;
+
+    // 1. Check if we have a valid cache in Supabase
+    const { data: cache, error: cacheError } = await supabase
+      .from('playlist_cache')
+      .select('content, updated_at')
+      .eq('user_id', userId)
+      .single();
+
+    if (cache && !cacheError) {
+      const lastUpdate = new Date(cache.updated_at);
+      const hoursSinceUpdate = (new Date().getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+
+      if (hoursSinceUpdate < CACHE_EXPIRY_HOURS) {
+        console.log(`🚀 Serving playlist from cache for user: ${userId}`);
+        return res.send(cache.content);
+      }
+      console.log(`⏰ Cache expired for user: ${userId}, fetching fresh data...`);
+    }
+
+    // 2. If no cache or expired, fetch from URLs
+    const { data: credentials } = await supabase
       .from('iptv_credentials')
       .select('*')
-      .eq('user_id', req.user.id)
+      .eq('user_id', userId)
       .single();
     
     let targetUrls = [...MASTER_PLAYLIST_URLS];
-    let manualContent = null;
+    let manualContent = '';
 
     if (credentials) {
       if (credentials.m3u_content) {
-        manualContent = credentials.m3u_content;
-      } else if (credentials.m3u_url) {
-        targetUrls = [credentials.m3u_url];
+        manualContent = credentials.m3u_content + '\n';
+      }
+      if (credentials.m3u_url) {
+        targetUrls = [credentials.m3u_url, ...MASTER_PLAYLIST_URLS];
       }
     }
 
-    let playlistContent = '';
+    let playlistContent = manualContent;
 
-    if (manualContent) {
-      playlistContent = manualContent;
-    } else {
-      // Fetch from URL(s)
-      for (const url of targetUrls) {
-        try {
-          console.log(`🌐 Fetching playlist from: ${url}`);
-          const response = await axios.get(url, {
-            timeout: 30000,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Accept': '*/*'
-            }
-          });
-          playlistContent += response.data + '\n';
-        } catch (err) {
-          console.error(`❌ Error fetching playlist from ${url}:`, err.message);
-        }
-      }
-
-      if (!playlistContent.trim()) {
-        // Fallback to basic Master if all failed
-        const masterRes = await axios.get(MASTER_PLAYLIST_URLS[1]);
-        playlistContent = masterRes.data;
+    for (const url of targetUrls) {
+      try {
+        console.log(`🌐 Fetching fresh playlist from: ${url}`);
+        const response = await axios.get(url, {
+          timeout: 15000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
+          }
+        });
+        playlistContent += response.data + '\n';
+      } catch (err) {
+        console.error(`❌ Error fetching ${url}:`, err.message);
       }
     }
 
-    // Auto-Categorization Logic
+    if (!playlistContent.trim()) {
+      // Final fallback
+      const masterRes = await axios.get(MASTER_PLAYLIST_URLS[1]);
+      playlistContent = masterRes.data;
+    }
+
+    // 3. Save to Cache in Supabase (Non-blocking)
+    supabase.from('playlist_cache').upsert({
+      user_id: userId,
+      content: playlistContent,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' }).then(({ error }) => {
+      if (error) console.error('❌ Failed to update cache:', error.message);
+      else console.log('✅ Cache updated successfully');
+    });
+
+    // 4. Auto-Categorization Logic
     const lines = playlistContent.split('\n');
     let updatedPlaylist = '#EXTM3U\n';
     

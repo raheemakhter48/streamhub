@@ -110,7 +110,40 @@ router.get('/proxy', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Stream proxy error:', error.message);
-    res.status(500).json({ success: false, message: 'Failed to proxy stream' });
+    // Return a specific status so frontend can decide to bypass proxy
+    res.status(502).json({ success: false, message: 'Proxy failed', error: error.message });
+  }
+});
+
+// @route   GET /api/stream/resolve
+// @desc    Resolve redirects to find final stream URL
+// @access  Public
+router.get('/resolve', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ success: false, message: 'URL is required' });
+
+    console.log(`🔍 Resolving URL: ${url}`);
+    
+    const response = await axios.get(url, {
+      maxRedirects: 5,
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      }
+    });
+
+    const finalUrl = response.request.res.responseUrl || url;
+    const redirected = finalUrl !== url;
+
+    res.json({
+      success: true,
+      originalUrl: url,
+      finalUrl: finalUrl,
+      redirected: redirected
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
