@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Heart, Tv, ExternalLink, Copy, Download } from "lucide-react";
+import { ArrowLeft, Star, Tv, ExternalLink, Copy, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -216,7 +216,7 @@ ${channelUrl}`;
                   onClick={toggleFavorite}
                   className="hover-glow"
                 >
-                  <Heart
+                  <Star
                     className={`w-5 h-5 ${isFavorite ? "fill-primary text-primary" : ""}`}
                   />
                 </Button>

@@ -10,7 +10,7 @@ interface HLSPlayerProps {
   useProxy?: boolean;
 }
 
-const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
+const HLSPlayer = ({ url }: HLSPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -20,21 +20,22 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Check if this is an HLS stream (.m3u8)
+  // Get preferences from localStorage
+  const preferredPlayer = localStorage.getItem("preferred_player") || "auto";
+  const useProxyPreference = localStorage.getItem("use_proxy") !== "false";
+
+  // Check stream type
   const isHlsStream = !!url && (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('m3u'));
-  
-  // Check if this is an MPEG-TS stream (.ts)
   const isMpegTsStream = !!url && (url.toLowerCase().includes('.ts') || url.toLowerCase().includes('/live/'));
 
   // Use proxy URL if enabled
-  const streamUrl = useProxy && url ? streamAPI.getProxyUrl(url) : url;
+  const streamUrl = useProxyPreference && url ? streamAPI.getProxyUrl(url) : url;
 
   useEffect(() => {
     if (!videoRef.current || !streamUrl) return;
 
     const video = videoRef.current;
     
-    // Cleanup previous players
     const cleanup = () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -50,9 +51,13 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
 
     cleanup();
 
-    // --- CASE 1: MPEG-TS Stream (.ts) ---
-    if (isMpegTsStream && mpegts.getFeatureList().mseLivePlayback) {
-      console.log('🚀 Using mpegts.js for stream:', url);
+    // Decision logic based on preference
+    const shouldRunMpegTs = (preferredPlayer === 'mpegts') || (preferredPlayer === 'auto' && isMpegTsStream);
+    const shouldRunHls = (preferredPlayer === 'hls') || (preferredPlayer === 'auto' && isHlsStream && !shouldRunMpegTs);
+
+    // --- CASE 1: MPEG-TS Player ---
+    if (shouldRunMpegTs && mpegts.getFeatureList().mseLivePlayback) {
+      console.log('🚀 Using mpegts.js (Preference:', preferredPlayer, ')');
       setIsLoading(true);
       setError(null);
 
@@ -74,104 +79,57 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
         mpegtsRef.current = player;
         player.attachMediaElement(video);
         player.load();
-        
-        const playPromise = player.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(() => {
-            // Autoplay blocked - show manual play button if needed
-          });
-        }
+        player.play().catch(() => {});
 
-        player.on(mpegts.Events.ERROR, (type, detail, info) => {
-          console.error('❌ MPEG-TS Error:', type, detail, info);
-          // Only show error if it's fatal or not recovering
-          if (detail === 'network_unauthorized' || detail === 'network_forbidden') {
-            setError(`Stream access denied (401/403).`);
-          } else if (detail === 'network_not_found') {
-            setError(`Stream URL not found (404).`);
-          } else {
-            setError(`Stream Error: ${detail}. Use "Open In" → "VLC Player" if it fails.`);
-          }
+        player.on(mpegts.Events.ERROR, (type, detail) => {
+          console.error('❌ MPEG-TS Error:', detail);
+          setError(`MPEG-TS Error: ${detail}`);
           setIsLoading(false);
-        });
-
-        player.on(mpegts.Events.LOADING_COMPLETE, () => {
-          setIsLoading(false);
-          setError(null);
         });
 
         player.on(mpegts.Events.METADATA_ARRIVED, () => {
           setIsLoading(false);
           setError(null);
         });
-      } catch (err: any) {
-        console.error('❌ mpegts creation error:', err);
-        setError('Player initialization failed.');
+      } catch (err) {
+        setError('MPEG-TS Player failed to initialize.');
         setIsLoading(false);
       }
+      return cleanup;
+    }
+
+    // --- CASE 2: HLS Player ---
+    if (shouldRunHls && Hls.isSupported()) {
+      console.log('🚀 Using HLS.js (Preference:', preferredPlayer, ')');
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        xhrSetup: (xhr) => { xhr.withCredentials = false; },
+      });
+
+      hlsRef.current = hls;
+      hls.loadSource(streamUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setIsLoading(false);
+        setError(null);
+        video.play().catch(() => {});
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          setError('HLS Stream error. Try switching player in Settings.');
+          setIsLoading(false);
+          hls.destroy();
+        }
+      });
 
       return cleanup;
     }
 
-    // --- CASE 2: HLS Stream (.m3u8) ---
-    if (isHlsStream) {
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 10,
-          maxBufferLength: 10,
-          maxMaxBufferLength: 20,
-          maxBufferSize: 30 * 1000 * 1000,
-          maxBufferHole: 0.3,
-          highBufferWatchdogPeriod: 1,
-          nudgeOffset: 0.1,
-          nudgeMaxRetry: 5,
-          maxFragLoadingTimeOut: 20000,
-          fragLoadingTimeOut: 20000,
-          manifestLoadingTimeOut: 20000,
-          startLevel: -1,
-          capLevelToPlayerSize: true,
-          autoStartLoad: true,
-          xhrSetup: (xhr) => {
-            xhr.withCredentials = false;
-          },
-        });
-
-        hlsRef.current = hls;
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          setIsLoading(false);
-          setError(null);
-          video.play().catch(() => {});
-        });
-
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            console.error('❌ HLS Fatal Error:', data);
-            setError('Stream format error. Click "Open In" → "VLC Player" for best results.');
-            setIsLoading(false);
-            hls.destroy();
-          }
-        });
-
-        return cleanup;
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        // Native Safari support
-        video.src = streamUrl;
-        video.addEventListener("loadedmetadata", () => {
-          setIsLoading(false);
-          setError(null);
-          video.play().catch(() => {});
-        });
-        return cleanup;
-      }
-    }
-
-    // --- CASE 3: Fallback Native Player ---
-    console.log('🎬 Using native video player fallback');
+    // --- CASE 3: Native Fallback ---
+    console.log('🎬 Using Native Fallback (Preference:', preferredPlayer, ')');
     video.src = streamUrl;
     
     const handleLoaded = () => {
@@ -181,7 +139,7 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
     };
 
     const handleError = () => {
-      setError('Browser cannot play this stream format. Use "Open In" → "VLC Player" for best experience.');
+      setError('Format not supported by browser. Try VLC Player.');
       setIsLoading(false);
     };
 
@@ -193,7 +151,7 @@ const HLSPlayer = ({ url, useProxy = true }: HLSPlayerProps) => {
       video.removeEventListener('error', handleError);
       cleanup();
     };
-  }, [streamUrl, isHlsStream, isMpegTsStream]);
+  }, [streamUrl, preferredPlayer]);
 
   const handlePlay = () => {
     if (videoRef.current) {

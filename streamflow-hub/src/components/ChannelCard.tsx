@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Play, Tv } from "lucide-react";
+import { Star, Play, Tv } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { favoritesAPI } from "@/lib/api";
 import { toast } from "sonner";
@@ -102,18 +102,16 @@ const ChannelCard = ({ channel, isFavorite, onToggleFavorite }: ChannelCardProps
           </Button>
         </div>
 
-        {/* Favorite Button */}
+        {/* Favorite Button - Top Right */}
         <Button
-          size="icon"
           variant="ghost"
-          className={`absolute top-2 right-2 transition-opacity bg-black/40 hover:bg-black/60 ${
-            localIsFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          size="icon"
+          className={`absolute top-2 right-2 z-10 hover:bg-black/20 ${
+            localIsFavorite ? "text-primary" : "text-white opacity-0 group-hover:opacity-100"
           }`}
           onClick={handleToggleFavorite}
         >
-          <Heart
-            className={`w-4 h-4 ${localIsFavorite ? "fill-primary text-primary" : "text-white"}`}
-          />
+          <Star className={`w-5 h-5 ${localIsFavorite ? "fill-current" : ""}`} />
         </Button>
       </div>
 

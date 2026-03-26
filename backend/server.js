@@ -13,6 +13,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 7860;
 
+// Environment check
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(v => !process.env[v]);
+
+if (missingEnvVars.length > 0) {
+  console.warn(`⚠️ Warning: Missing environment variables: ${missingEnvVars.join(', ')}`);
+  console.warn('Backend might not function correctly without these.');
+}
+
 // Trust reverse proxy (Hugging Face / Cloudflare / Nginx)
 app.set('trust proxy', true);
 
@@ -32,13 +41,28 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     port: PORT,
-    env: process.env.NODE_ENV || 'not set'
+    env: process.env.NODE_ENV || 'not set',
+    diagnostics: {
+      supabase_url: !!process.env.SUPABASE_URL,
+      supabase_key: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY),
+      jwt_secret: !!process.env.JWT_SECRET,
+      missing: missingEnvVars
+    }
   });
 });
 
 // Root route (Hugging Face default page ke liye)
 app.get('/', (req, res) => {
-  res.send('StreamFlow API is Running! Use /health to check status.');
+  if (missingEnvVars.length > 0) {
+    res.status(500).send(`
+      <h1>StreamFlow API is Running!</h1>
+      <p style="color: red;">⚠️ <b>Warning:</b> Missing environment variables: ${missingEnvVars.join(', ')}</p>
+      <p>Check your Hugging Face Space settings and add these variables.</p>
+      <p>Use <a href="/health">/health</a> to check detailed status.</p>
+    `);
+  } else {
+    res.send('StreamFlow API is Running! Everything looks good. Use /health to check status.');
+  }
 });
 
 // API Routes

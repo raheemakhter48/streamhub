@@ -8,6 +8,10 @@ const router = express.Router();
 
 // Generate JWT Token
 const generateToken = (id) => {
+  if (!process.env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET is missing! Token generation will fail.');
+    throw new Error('Server configuration error: JWT_SECRET is missing');
+  }
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '7d'
   });
