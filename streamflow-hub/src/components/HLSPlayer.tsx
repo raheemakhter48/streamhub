@@ -28,8 +28,11 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
   const isHlsStream = !!url && (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('m3u_plus'));
   const isMpegTsStream = !!url && (url.toLowerCase().includes('.ts') || (url.toLowerCase().includes('/live/') && !url.toLowerCase().includes('.m3u8')));
 
+  // Check if we should use proxy
+  const [shouldUseProxy, setShouldUseProxy] = useState(useProxyPreference);
+
   // Use proxy URL if enabled
-  const streamUrl = useProxyPreference && url ? streamAPI.getProxyUrl(url) : url;
+  const streamUrl = shouldUseProxy && url ? streamAPI.getProxyUrl(url) : url;
 
   useEffect(() => {
     if (!videoRef.current || !streamUrl) return;
@@ -55,9 +58,9 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
     const shouldRunMpegTs = (preferredPlayer === 'mpegts') || (preferredPlayer === 'auto' && isMpegTsStream);
     const shouldRunHls = (preferredPlayer === 'hls') || (preferredPlayer === 'auto' && isHlsStream);
 
-    // --- CASE 1: HLS Player (Priority for HLS) ---
+    // --- CASE 1: HLS Player ---
     if (shouldRunHls && Hls.isSupported()) {
-      console.log('🚀 Using HLS.js (Preference:', preferredPlayer, ')');
+      console.log('🚀 Using HLS.js (Proxy:', shouldUseProxy, ')');
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
@@ -76,7 +79,13 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          setError('HLS Stream error. Try switching player in Settings.');
+          // If proxy fails, try direct bypass
+          if (shouldUseProxy) {
+            console.warn('⚠️ Proxy failed, trying direct bypass...');
+            setShouldUseProxy(false);
+            return;
+          }
+          setError('Stream error. Try switching player in Settings.');
           setIsLoading(false);
           hls.destroy();
         }
@@ -87,7 +96,7 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
 
     // --- CASE 2: MPEG-TS Player ---
     if (shouldRunMpegTs && mpegts.getFeatureList().mseLivePlayback) {
-      console.log('🚀 Using mpegts.js (Preference:', preferredPlayer, ')');
+      console.log('🚀 Using mpegts.js (Proxy:', shouldUseProxy, ')');
       setIsLoading(true);
       setError(null);
 
@@ -109,11 +118,15 @@ const HLSPlayer = ({ url }: HLSPlayerProps) => {
         mpegtsRef.current = player;
         player.attachMediaElement(video);
         player.load();
-        
-        // Use any cast to fix TypeScript error for .play()
         (player.play() as any)?.catch(() => {});
 
         player.on(mpegts.Events.ERROR, (type, detail) => {
+          // If proxy fails, try direct bypass
+          if (shouldUseProxy) {
+            console.warn('⚠️ Proxy failed, trying direct bypass...');
+            setShouldUseProxy(false);
+            return;
+          }
           console.error('❌ MPEG-TS Error:', detail);
           setError(`MPEG-TS Error: ${detail}`);
           setIsLoading(false);
