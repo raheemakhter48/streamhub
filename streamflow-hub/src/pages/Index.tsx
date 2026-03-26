@@ -110,7 +110,7 @@ const Index = () => {
               description: "HLS technology ensures zero buffering and instant channel switching"
             },
             {
-              icon: Heart,
+              icon: Star,
               title: "Favorites System",
               description: "Mark your favorite channels and access them instantly"
             },
