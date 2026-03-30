@@ -1,13 +1,4 @@
----
-title: Streamflow API
-emoji: 📺
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-pinned: false
----
-
-# Streamflow Backend API
+# StreamFlow Backend API
 
 Backend API for StreamFlow IPTV streaming application.
 

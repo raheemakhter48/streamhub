@@ -8,8 +8,11 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import LinearGradient from 'react-native-linear-gradient';
 import {useAuth} from '../context/AuthContext';
 import {iptvAPI, favoritesAPI, recentlyWatchedAPI} from '../lib/api';
 import {parseM3U, getCategories} from '../utils/m3uParser';
@@ -29,11 +32,11 @@ const DashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [hasCredentials, setHasCredentials] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const channelsPerPage = 50;
+  const channelsPerPage = 60;
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigation.navigate('Auth' as never);
+      (navigation as any).navigate('Auth');
       return;
     }
     loadData();
@@ -81,7 +84,6 @@ const DashboardScreen: React.FC = () => {
       const parsedChannels = parseM3U(text);
       setChannels(parsedChannels);
       setFilteredChannels(parsedChannels);
-      console.log(`Loaded ${parsedChannels.length} channels`);
     } catch (error: any) {
       console.error('Error parsing M3U:', error);
     } finally {
@@ -92,7 +94,7 @@ const DashboardScreen: React.FC = () => {
   const loadFavorites = async () => {
     try {
       const data = await favoritesAPI.getFavorites();
-      const favoriteUrls = new Set(data.map((f: Favorite) => f.channelUrl));
+      const favoriteUrls = new Set<string>(data.map((f: Favorite) => f.channelUrl));
       setFavorites(favoriteUrls);
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -158,54 +160,38 @@ const DashboardScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading channels...</Text>
+  const renderHeader = () => (
+    <View>
+      <View style={styles.topHeader}>
+        <View>
+          <Text style={styles.welcomeText}>Welcome back,</Text>
+          <Text style={styles.userNameText}>{user?.email?.split('@')[0] || 'Streamer'}</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.profileButton}
+          onPress={() => (navigation as any).navigate('Setup')}>
+          <LinearGradient
+            colors={['#3b82f6', '#2563eb']}
+            style={styles.profileBadge}>
+            <Text style={styles.profileIconText}>⚙️</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
-    );
-  }
 
-  if (!hasCredentials) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>No IPTV Credentials</Text>
-          <Text style={styles.emptyText}>
-            Please set up your IPTV credentials to start streaming
-          </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.navigate('Setup' as never)}>
-            <Text style={styles.buttonText}>Setup IPTV</Text>
-          </TouchableOpacity>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search channels, categories..."
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
         </View>
       </View>
-    );
-  }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search channels..."
-          placeholderTextColor="#666"
-          value={searchQuery}
-          onChangeText={handleSearch}
-        />
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => navigation.navigate('Setup' as never)}>
-          <Text style={styles.settingsText}>⚙️</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.categoriesContainer}>
+      <View style={styles.categoriesSection}>
         <FlatList
           horizontal
           data={categories}
@@ -227,12 +213,13 @@ const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
           )}
           showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesList}
         />
       </View>
 
-      {recentlyWatched.length > 0 && (
+      {recentlyWatched.length > 0 && searchQuery === '' && selectedCategory === 'All' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recently Watched</Text>
+          <Text style={styles.sectionTitle}>Continue Watching</Text>
           <FlatList
             horizontal
             data={recentlyWatched}
@@ -247,162 +234,237 @@ const DashboardScreen: React.FC = () => {
                 }}
                 isFavorite={favorites.has(item.channelUrl)}
                 onPress={() =>
-                  navigation.navigate('Player' as never, {
+                  (navigation as any).navigate('Player', {
                     channel: {
                       name: item.channelName,
                       url: item.channelUrl,
                       logo: item.channelLogo,
                       group: item.category,
                     },
-                  } as never)
+                  })
                 }
               />
             )}
             showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{paddingLeft: 16}}
           />
         </View>
       )}
 
-      <Text style={styles.channelCount}>
-        {filteredChannels.length} channels
-      </Text>
+      <View style={styles.listHeader}>
+        <Text style={styles.sectionTitle}>
+          {selectedCategory === 'All' ? 'All Channels' : selectedCategory}
+        </Text>
+        <Text style={styles.channelCount}>
+          {filteredChannels.length} found
+        </Text>
+      </View>
+    </View>
+  );
 
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Synchronizing streams...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
       <FlatList
         data={paginatedChannels}
+        numColumns={3}
         keyExtractor={(item, index) => `${item.url}-${index}`}
         renderItem={({item}) => (
           <ChannelCard
             channel={item}
             isFavorite={favorites.has(item.url)}
             onPress={() =>
-              navigation.navigate('Player' as never, {channel: item} as never)
+              (navigation as any).navigate('Player', {channel: item})
             }
           />
         )}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
+        ListHeaderComponent={renderHeader}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor="#3b82f6"
+            colors={['#3b82f6']}
+          />
         }
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No channels found</Text>
+            <Text style={styles.emptyText}>No channels matching your search</Text>
           </View>
         }
       />
-    </View>
+      
+      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0a0a0a',
+  },
+  listContent: {
+    paddingBottom: 80,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: '#0a0a0a',
   },
   loadingText: {
     color: '#ffffff',
     marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 1,
   },
-  header: {
+  topHeader: {
     flexDirection: 'row',
-    padding: 16,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  welcomeText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  userNameText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  profileButton: {
+    elevation: 4,
+  },
+  profileBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileIconText: {
+    fontSize: 22,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    marginVertical: 15,
+  },
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    height: 55,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  searchIcon: {
+    fontSize: 18,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    padding: 12,
     fontSize: 16,
     color: '#ffffff',
+    fontWeight: '500',
   },
-  settingsButton: {
-    padding: 8,
+  categoriesSection: {
+    marginBottom: 10,
   },
-  settingsText: {
-    fontSize: 24,
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  logoutText: {
-    color: '#3b82f6',
-    fontSize: 14,
-  },
-  categoriesContainer: {
-    paddingVertical: 8,
+  categoriesList: {
+    paddingHorizontal: 16,
   },
   categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginRight: 10,
+    borderRadius: 25,
     backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
   },
   categoryChipActive: {
     backgroundColor: '#3b82f6',
+    borderColor: '#60a5fa',
   },
   categoryText: {
     color: '#888',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   categoryTextActive: {
     color: '#ffffff',
   },
   section: {
-    marginVertical: 16,
+    marginTop: 10,
+    marginBottom: 5,
   },
   sectionTitle: {
     color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: '800',
+    paddingHorizontal: 20,
+    marginBottom: 15,
+    letterSpacing: -0.5,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 5,
   },
   channelCount: {
-    color: '#888',
+    color: '#3b82f6',
     fontSize: 14,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    fontWeight: '700',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 50,
     alignItems: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
   },
   emptyText: {
-    color: '#888',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  button: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    padding: 16,
-    paddingHorizontal: 32,
-  },
-  buttonText: {
-    color: '#ffffff',
+    color: '#666',
     fontSize: 16,
-    fontWeight: '600',
+    textAlign: 'center',
+  },
+  logoutButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 59, 48, 0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    elevation: 8,
+  },
+  logoutText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 

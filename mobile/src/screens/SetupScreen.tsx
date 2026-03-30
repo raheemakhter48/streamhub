@@ -8,8 +8,11 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import LinearGradient from 'react-native-linear-gradient';
 import {iptvAPI} from '../lib/api';
 import {useAuth} from '../context/AuthContext';
 
@@ -113,203 +116,283 @@ const SetupScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'm3u' && styles.tabActive]}
-          onPress={() => setActiveTab('m3u')}>
-          <Text style={[styles.tabText, activeTab === 'm3u' && styles.tabTextActive]}>
-            M3U URL
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.headerSection}>
+          <Text style={styles.headerTitle}>Setup IPTV</Text>
+          <Text style={styles.headerSubtitle}>
+            Configure your playlist to start streaming live channels
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'credentials' && styles.tabActive]}
-          onPress={() => setActiveTab('credentials')}>
-          <Text
-            style={[styles.tabText, activeTab === 'credentials' && styles.tabTextActive]}>
-            Username/Password
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'paste' && styles.tabActive]}
-          onPress={() => setActiveTab('paste')}>
-          <Text style={[styles.tabText, activeTab === 'paste' && styles.tabTextActive]}>
-            Paste M3U
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Provider Name (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="My IPTV Provider"
-            placeholderTextColor="#666"
-            value={providerName}
-            onChangeText={setProviderName}
-          />
         </View>
 
-        {activeTab === 'm3u' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>M3U URL</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="https://example.com/playlist.m3u"
-              placeholderTextColor="#666"
-              value={m3uUrl}
-              onChangeText={setM3uUrl}
-              keyboardType="url"
-              autoCapitalize="none"
-            />
+        <View style={styles.tabContainer}>
+          {[
+            {id: 'm3u', label: 'M3U URL'},
+            {id: 'credentials', label: 'Xtream'},
+            {id: 'paste', label: 'Paste'},
+          ].map((tab: any) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+              onPress={() => setActiveTab(tab.id)}>
+              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.formCard}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Provider Name (Optional)</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. My Premium IPTV"
+                placeholderTextColor="#666"
+                value={providerName}
+                onChangeText={setProviderName}
+              />
+            </View>
           </View>
-        )}
 
-        {activeTab === 'credentials' && (
-          <>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Server URL</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="http://server.com:8080"
-                placeholderTextColor="#666"
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                keyboardType="url"
-                autoCapitalize="none"
-              />
+          {activeTab === 'm3u' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>M3U Playlist URL</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="https://server.com/playlist.m3u"
+                  placeholderTextColor="#666"
+                  value={m3uUrl}
+                  onChangeText={setM3uUrl}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                />
+              </View>
             </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your username"
-                placeholderTextColor="#666"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your password"
-                placeholderTextColor="#666"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-          </>
-        )}
-
-        {activeTab === 'paste' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>M3U Content</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Paste your M3U playlist content here..."
-              placeholderTextColor="#666"
-              value={m3uContent}
-              onChangeText={setM3uContent}
-              multiline
-              numberOfLines={10}
-              textAlignVertical="top"
-            />
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSave}
-          disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.buttonText}>Save Credentials</Text>
           )}
+
+          {activeTab === 'credentials' && (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Server URL</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="http://iptv-provider.com:8080"
+                    placeholderTextColor="#666"
+                    value={serverUrl}
+                    onChangeText={setServerUrl}
+                    keyboardType="url"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+              <View style={styles.inputRow}>
+                <View style={[styles.inputGroup, {flex: 1, marginRight: 8}]}>
+                  <Text style={styles.label}>Username</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="User"
+                      placeholderTextColor="#666"
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </View>
+                <View style={[styles.inputGroup, {flex: 1, marginLeft: 8}]}>
+                  <Text style={styles.label}>Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Pass"
+                      placeholderTextColor="#666"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
+
+          {activeTab === 'paste' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>M3U Content</Text>
+              <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="#EXTM3U\n#EXTINF:-1,Channel Name\nhttp://server.com/stream.ts"
+                  placeholderTextColor="#444"
+                  value={m3uContent}
+                  onChangeText={setM3uContent}
+                  multiline
+                  numberOfLines={8}
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.saveButtonContainer}
+            onPress={handleSave}
+            disabled={loading}>
+            <LinearGradient
+              colors={['#3b82f6', '#2563eb']}
+              style={[styles.saveButton, loading && styles.buttonDisabled]}>
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save & Sync Channels</Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>Back to Dashboard</Text>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0a0a0a',
   },
   content: {
-    padding: 16,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  headerSection: {
+    marginTop: 10,
+    marginBottom: 30,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#888',
+    marginTop: 8,
+    lineHeight: 22,
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 24,
     backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 4,
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
   },
   tabActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#2a2a2a',
+    elevation: 2,
   },
   tabText: {
-    color: '#888',
-    fontSize: 12,
-    fontWeight: '600',
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '700',
   },
   tabTextActive: {
-    color: '#ffffff',
+    color: '#3b82f6',
   },
-  form: {
-    width: '100%',
+  formCard: {
+    backgroundColor: '#111111',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#222',
   },
-  inputContainer: {
+  inputGroup: {
     marginBottom: 20,
   },
+  inputRow: {
+    flexDirection: 'row',
+  },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#aaa',
+    marginBottom: 10,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  inputWrapper: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    overflow: 'hidden',
+  },
+  textAreaWrapper: {
+    height: 180,
   },
   input: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     fontSize: 16,
     color: '#ffffff',
+    fontWeight: '500',
   },
   textArea: {
-    height: 200,
-    paddingTop: 16,
+    height: '100%',
   },
-  button: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    padding: 16,
+  saveButtonContainer: {
+    marginTop: 10,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+  },
+  saveButton: {
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
+  saveButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  backButton: {
+    marginTop: 25,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#666',
+    fontSize: 14,
     fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
+
+export default SetupScreen;
 
 export default SetupScreen;
 

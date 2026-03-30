@@ -33,7 +33,6 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
     return response.json();
   } catch (error: any) {
-    // Better error messages for network issues
     if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
       throw new Error(`Cannot connect to server. Make sure backend is running at ${API_URL.replace('/api', '')} and phone is on same WiFi.`);
     }
@@ -160,6 +159,8 @@ export const recentlyWatchedAPI = {
 // Stream API
 export const streamAPI = {
   getProxyUrl: (streamUrl: string) => {
+    if (!streamUrl) return '';
+    // Automatically use proxy for all streams to bypass ISP blocking and inject headers
     return `${API_URL}/stream/proxy?url=${encodeURIComponent(streamUrl)}`;
   },
 
@@ -176,4 +177,3 @@ export const streamAPI = {
     }
   },
 };
-

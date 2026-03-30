@@ -8,7 +8,9 @@ import {
   Linking,
   Alert,
   Platform,
+  StatusBar,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {useRoute, useNavigation} from '@react-navigation/native';
 import VideoPlayer from '../components/VideoPlayer';
@@ -18,6 +20,7 @@ import {Channel} from '../types';
 const PlayerScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const {channel} = route.params as {channel: Channel};
   
   const [isFavorite, setIsFavorite] = useState(false);
@@ -84,8 +87,7 @@ const PlayerScreen: React.FC = () => {
       if (canOpen) {
         await Linking.openURL(vlcUrl);
       } else {
-        // Fallback: try to open VLC with http/https
-        const httpUrl = finalUrl.startsWith('http') 
+        const httpUrl = finalUrl.startsWith('http')
           ? finalUrl 
           : `http://${finalUrl}`;
         const vlcHttpUrl = `vlc://${httpUrl}`;
@@ -95,7 +97,7 @@ const PlayerScreen: React.FC = () => {
         } catch {
           Alert.alert(
             'VLC Not Found',
-            'Please install VLC Player and try again.\n\nOr copy the URL manually:\n' + finalUrl,
+            'Please install VLC Player and try again.',
             [
               {text: 'Copy URL', onPress: () => copyToClipboard(finalUrl)},
               {text: 'OK'},
@@ -136,14 +138,28 @@ const PlayerScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <VideoPlayer
-        streamUrl={channel.url}
-        channelName={channel.name}
-        onError={(error) => {
-          Alert.alert('Stream Error', error);
-        }}
-      />
+    <View style={[styles.container, {paddingTop: 0}]}>
+      <StatusBar hidden />
+
+      {/* Video Container */}
+      <View style={styles.videoContainer}>
+        <VideoPlayer
+          streamUrl={channel.url}
+          channelName={channel.name}
+          onError={(error) => {
+            Alert.alert('Stream Error', error);
+          }}
+        />
+
+        {/* Back Button Overlay */}
+        <TouchableOpacity
+          style={[styles.backButton, {top: insets.top + 10}]}
+          onPress={() => navigation.goBack()}>
+          <View style={styles.backButtonInner}>
+            <Text style={styles.backButtonText}>←</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.infoContainer} contentContainerStyle={styles.infoContent}>
         <View style={styles.header}>
@@ -200,17 +216,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  videoContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+  },
+  backButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: -4, // Adjust for center alignment of arrow
+  },
   infoContainer: {
     flex: 1,
   },
   infoContent: {
-    padding: 16,
+    padding: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
@@ -220,7 +263,7 @@ const styles = StyleSheet.create({
   },
   channelName: {
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     flex: 1,
   },
@@ -239,33 +282,34 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   favoriteIcon: {
-    fontSize: 24,
+    fontSize: 28,
   },
   category: {
-    color: '#888',
-    fontSize: 14,
+    color: '#aaa',
+    fontSize: 15,
     marginBottom: 24,
   },
   actionsContainer: {
-    marginTop: 16,
+    marginTop: 8,
   },
   actionsTitle: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   actionButton: {
     backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+    elevation: 2,
   },
   actionButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   secondaryButton: {
     backgroundColor: '#1a1a1a',
@@ -278,4 +322,3 @@ const styles = StyleSheet.create({
 });
 
 export default PlayerScreen;
-

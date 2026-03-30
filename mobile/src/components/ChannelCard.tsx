@@ -1,5 +1,13 @@
 import React from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, Image} from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Dimensions,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import {Channel} from '../types';
 
 interface ChannelCardProps {
@@ -8,87 +16,123 @@ interface ChannelCardProps {
   onPress: () => void;
 }
 
+const {width} = Dimensions.get('window');
+const CARD_WIDTH = (width - 48) / 3;
+
 const ChannelCard: React.FC<ChannelCardProps> = ({
   channel,
   isFavorite,
   onPress,
 }) => {
+  const logoUrl = channel.logo || channel.tvgLogo;
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.logoContainer}>
-        {channel.logo || channel.tvgLogo ? (
-          <Image
-            source={{uri: channel.logo || channel.tvgLogo}}
-            style={styles.logo}
-            resizeMode="contain"
-            onError={() => {}}
+    <TouchableOpacity
+      style={styles.cardContainer}
+      onPress={onPress}
+      activeOpacity={0.8}>
+      <View style={styles.card}>
+        <View style={styles.logoWrapper}>
+          {logoUrl ? (
+            <Image
+              source={{uri: logoUrl}}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          ) : (
+            <LinearGradient
+              colors={['#2a2a2a', '#1a1a1a']}
+              style={styles.placeholderLogo}>
+              <Text style={styles.placeholderIcon}>📺</Text>
+            </LinearGradient>
+          )}
+
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.overlay}
           />
-        ) : (
-          <View style={styles.placeholderLogo}>
-            <Text style={styles.placeholderText}>📺</Text>
-          </View>
-        )}
-        {channel.isHD && (
-          <View style={styles.hdBadge}>
-            <Text style={styles.hdText}>HD</Text>
-          </View>
-        )}
-        {isFavorite && (
-          <View style={styles.favoriteBadge}>
-            <Text style={styles.favoriteText}>❤️</Text>
-          </View>
-        )}
+
+          {channel.isHD && (
+            <View style={styles.hdBadge}>
+              <Text style={styles.hdText}>HD</Text>
+            </View>
+          )}
+
+          {isFavorite && (
+            <View style={styles.favoriteBadge}>
+              <Text style={styles.favoriteText}>❤️</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.channelName} numberOfLines={1}>
+            {channel.name}
+          </Text>
+          {channel.group && (
+            <Text style={styles.category} numberOfLines={1}>
+              {channel.group}
+            </Text>
+          )}
+        </View>
       </View>
-      <Text style={styles.channelName} numberOfLines={2}>
-        {channel.name}
-      </Text>
-      {channel.group && (
-        <Text style={styles.category} numberOfLines={1}>
-          {channel.group}
-        </Text>
-      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    width: 160,
-    margin: 8,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 12,
+  cardContainer: {
+    width: CARD_WIDTH,
+    marginHorizontal: 8,
+    marginVertical: 10,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
-  logoContainer: {
+  card: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  logoWrapper: {
     width: '100%',
-    height: 90,
-    marginBottom: 8,
+    height: CARD_WIDTH * 0.85,
     position: 'relative',
+    backgroundColor: '#000',
   },
   logo: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
   },
   placeholderLogo: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  placeholderText: {
-    fontSize: 32,
+  placeholderIcon: {
+    fontSize: 24,
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
   },
   hdBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 6,
+    right: 6,
     backgroundColor: '#3b82f6',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   hdText: {
     color: '#ffffff',
@@ -97,21 +141,27 @@ const styles = StyleSheet.create({
   },
   favoriteBadge: {
     position: 'absolute',
-    top: 4,
-    left: 4,
+    top: 6,
+    left: 6,
   },
   favoriteText: {
-    fontSize: 16,
+    fontSize: 14,
+  },
+  infoContainer: {
+    padding: 8,
+    backgroundColor: '#1a1a1a',
   },
   channelName: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   category: {
     color: '#888',
-    fontSize: 12,
+    fontSize: 10,
+    marginTop: 2,
+    fontWeight: '500',
   },
 });
 

@@ -3,7 +3,7 @@ import { authAPI, iptvAPI, favoritesAPI, recentlyWatchedAPI } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, Search, Settings, Tv, Star, Clock, Moon, Sun, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, Search, Settings, Tv, Heart, Clock, Moon, Sun, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import ChannelCard from "@/components/ChannelCard";
@@ -107,11 +107,25 @@ const Dashboard = () => {
 
   const loadCredentialsAndChannels = async () => {
     try {
-      // Fetch playlist directly from backend (it will return Master Playlist if no credentials)
-      await parseM3UPlaylist();
-      setHasCredentials(true); // Always set to true since we have Master Playlist as fallback
+      const credentialsData = await iptvAPI.getCredentials();
+      
+      if (!credentialsData.success || !credentialsData.data) {
+        setHasCredentials(false);
+        setIsLoading(false);
+        return;
+      }
+
+      const credentials = credentialsData.data;
+      
+      if (credentials.m3uUrl || credentials.m3uContent) {
+        setHasCredentials(true);
+        // Fetch playlist from backend (no CORS issues!)
+        await parseM3UPlaylist();
+      } else {
+        setHasCredentials(false);
+      }
     } catch (error: any) {
-      console.error("Error loading channels:", error);
+      console.error("Error loading credentials:", error);
       setHasCredentials(false);
     } finally {
       setIsLoading(false);
@@ -245,40 +259,7 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const categories = useMemo(() => {
-    const allGroups = Array.from(new Set(channels.map((ch) => ch.group || "Other")));
-    
-    // Define the preferred order for our special categories
-    const preferredOrder = [
-      "All",
-      "Cricket",
-      "Pakistani Channels",
-      "Indian Channels",
-      "Islamic",
-      "Sports",
-      "News",
-      "Kids",
-      "Movies",
-      "General"
-    ];
-
-    // Sort: Preferred order first, then alphabetical for the rest
-    return [
-      "All",
-      ...allGroups
-        .filter(g => g !== "All")
-        .sort((a, b) => {
-          const indexA = preferredOrder.indexOf(a);
-          const indexB = preferredOrder.indexOf(b);
-          
-          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-          if (indexA !== -1) return -1;
-          if (indexB !== -1) return 1;
-          
-          return a.localeCompare(b);
-        })
-    ];
-  }, [channels]);
+  const categories = ["All", ...Array.from(new Set(channels.map((ch) => ch.group || "Other")))];
 
   if (isLoading) {
     return (
@@ -348,7 +329,7 @@ const Dashboard = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/settings")}
+                onClick={() => navigate("/setup")}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
@@ -394,7 +375,7 @@ const Dashboard = () => {
         {favorites.length > 0 && !showFavoritesOnly && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Star className="w-5 h-5 text-primary fill-primary" />
+              <Heart className="w-5 h-5 text-primary fill-primary" />
               <h2 className="text-2xl font-bold">Favorites</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
@@ -432,7 +413,7 @@ const Dashboard = () => {
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className="gap-2"
             >
-              <Star className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
+              <Heart className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
               Favorites
             </Button>
           </div>

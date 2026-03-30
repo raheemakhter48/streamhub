@@ -80,7 +80,7 @@ fasco/
 │   ├── Dockerfile          # Docker configuration
 │   └── package.json
 │
-├── streamflow-hub/         # React Web Frontend
+├── web/                    # React Web Frontend
 │   ├── src/
 │   │   ├── components/     # React components
 │   │   ├── pages/          # Page components
@@ -173,7 +173,7 @@ FRONTEND_URL=http://localhost:8080
 ### 3. Web Frontend Setup
 
 ```bash
-cd streamflow-hub
+cd web
 npm install
 ```
 
@@ -232,7 +232,7 @@ Backend will run on `http://localhost:3000`
 
 **Terminal 2 - Web Frontend:**
 ```bash
-cd streamflow-hub
+cd web
 npm run dev
 ```
 Frontend will run on `http://localhost:8080`
@@ -255,7 +255,7 @@ npm start
 
 **Web Frontend:**
 ```bash
-cd streamflow-hub
+cd web
 npm run build
 npm run preview
 ```
@@ -295,14 +295,14 @@ See `backend/DEPLOYMENT.md` for detailed instructions.
 
 **Vercel (Recommended):**
 ```bash
-cd streamflow-hub
+cd web
 npm run build
 # Deploy dist folder to Vercel
 ```
 
 **Netlify:**
 ```bash
-cd streamflow-hub
+cd web
 npm run build
 # Deploy dist folder to Netlify
 ```

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">StreamFlow Hub</string>
+    <string name="main_component_name">StreamFlow</string>
+    <string name="js_main_module_name">index</string>
 </resources>
