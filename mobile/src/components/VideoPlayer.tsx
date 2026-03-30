@@ -68,7 +68,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const handleError = async (data: OnErrorData) => {
-    console.error(`Video error with strategy ${strategy}:`, data);
+    console.log(`Video error with strategy ${strategy}:`, data);
 
     if (strategy === 'proxy') {
       setStrategy('direct_vlc');
