@@ -1,7 +1,13 @@
 import express from 'express';
 import axios from 'axios';
+import https from 'https';
 
 const router = express.Router();
+
+// Custom agent to ignore expired certificates (common in IPTV providers)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 // @route   GET /api/stream/proxy
 // @desc    Proxy video stream to avoid CORS issues
@@ -52,6 +58,7 @@ router.get('/proxy', async (req, res, next) => {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*'
         },
+        httpsAgent, // Ignore SSL certificate errors
         validateStatus: (status) => status < 500 // Don't throw on 4xx
       });
 
@@ -106,6 +113,7 @@ router.get('/proxy', async (req, res, next) => {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             },
+            httpsAgent, // Ignore SSL certificate errors
             validateStatus: () => true // Don't throw on any status
           });
           finalUrl = headResponse.request.res.responseUrl || decodedUrl;
@@ -120,6 +128,7 @@ router.get('/proxy', async (req, res, next) => {
               await axios.head(finalUrl, {
                 timeout: 5000,
                 maxRedirects: 0, // Don't follow further redirects
+                httpsAgent, // Ignore SSL certificate errors
                 validateStatus: () => true
               });
             } catch (redirectError) {
@@ -161,6 +170,7 @@ router.get('/proxy', async (req, res, next) => {
           responseType: 'stream',
           timeout: 30000,
           maxRedirects: 5, // Allow up to 5 redirects
+          httpsAgent, // Ignore SSL certificate errors
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': '*/*',
