@@ -83,11 +83,7 @@ const AuthScreen: React.FC = () => {
             
             <View style={styles.topSection}>
               <View style={[styles.logoCircle, {borderColor: primaryColor}]}>
-                <Image 
-                  source={require('../assets/logo.png')}
-                  style={{width: 80, height: 80}}
-                  resizeMode="contain"
-                />
+                <Text style={[styles.logoEmoji, {color: primaryColor}]}>📺</Text>
               </View>
               <Text style={styles.title}>StreamFlow</Text>
               <Text style={[styles.subtitle, {color: primaryColor}]}>

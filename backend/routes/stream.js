@@ -169,27 +169,30 @@ router.get('/proxy', async (req, res, next) => {
           url: decodedUrl,
           responseType: 'stream',
           timeout: 30000,
-          maxRedirects: 5, // Allow up to 5 redirects
+          maxRedirects: 10, // Increase redirects
           httpsAgent, // Ignore SSL certificate errors
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11', // Match the agent in the logs
             'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': decodedUrl,
-            'Origin': new URL(decodedUrl).origin,
+            'Range': 'bytes=0-',
             'Connection': 'keep-alive',
-            'Cache-Control': 'no-cache',
-            'DNT': '1',
-            'Sec-Fetch-Dest': 'video',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'cross-site'
+            'Icy-MetaData': '1'
           },
           validateStatus: (status) => {
-            // Don't throw on 4xx, but handle 520 (Cloudflare error) specially
-            return status < 500 || status === 520;
+            // Some IPTV servers return 400 if headers don't match exactly, 
+            // but we want to see what they return
+            return status < 500;
           }
         });
+
+        if (response.status >= 400) {
+          console.error(`Stream fetch failed: ${response.status} ${response.statusText}`);
+          return res.status(response.status).json({
+            success: false,
+            message: `Stream provider returned ${response.status}: ${response.statusText}`,
+            url: decodedUrl
+          });
+        }
 
         // Handle Cloudflare 520 error specifically
         if (response.status === 520) {
