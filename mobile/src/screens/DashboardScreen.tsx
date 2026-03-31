@@ -10,6 +10,7 @@ import {
   RefreshControl,
   StatusBar,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -34,9 +35,9 @@ const DashboardScreen: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const channelsPerPage = 40;
 
-  // Updated colors from logo: Teal/Cyan (#00A8B5) and Deep Blue (#004E92)
-  const primaryColor = '#00A8B5';
-  const secondaryColor = '#004E92';
+  // Colors matched to your Logo
+  const primaryColor = '#00A8B5'; // Teal
+  const secondaryColor = '#004E92'; // Deep Blue
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -127,9 +128,15 @@ const DashboardScreen: React.FC = () => {
   const renderHomeMode = () => (
     <View style={styles.homeContainer}>
       <View style={styles.topHeader}>
-        <View>
-          <Text style={styles.welcomeText}>Welcome back,</Text>
-          <Text style={styles.userNameText}>{user?.email?.split('@')[0] || 'Streamer'}</Text>
+        <View style={styles.brandingContainer}>
+           {/* Branding Logo Area */}
+          <View style={styles.logoCircle}>
+             <Text style={{fontSize: 24}}>📺</Text>
+          </View>
+          <View>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.userNameText}>{user?.email?.split('@')[0] || 'Streamer'}</Text>
+          </View>
         </View>
         <TouchableOpacity 
           style={styles.profileButton}
@@ -146,6 +153,7 @@ const DashboardScreen: React.FC = () => {
         <TouchableOpacity 
           style={[styles.smartersButton, {backgroundColor: '#002C31'}]}
           onPress={() => setViewMode('live')}>
+          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>📺</Text>
           <Text style={styles.smartersText}>LIVE TV</Text>
         </TouchableOpacity>
@@ -153,6 +161,7 @@ const DashboardScreen: React.FC = () => {
         <TouchableOpacity 
           style={[styles.smartersButton, {backgroundColor: '#004A55'}]}
           onPress={() => setViewMode('movie')}>
+          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>🎬</Text>
           <Text style={styles.smartersText}>MOVIES</Text>
         </TouchableOpacity>
@@ -160,6 +169,7 @@ const DashboardScreen: React.FC = () => {
         <TouchableOpacity 
           style={[styles.smartersButton, {backgroundColor: '#006B7B'}]}
           onPress={() => setViewMode('series')}>
+          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>🎭</Text>
           <Text style={styles.smartersText}>SERIES</Text>
         </TouchableOpacity>
@@ -167,6 +177,7 @@ const DashboardScreen: React.FC = () => {
         <TouchableOpacity 
           style={[styles.smartersButton, {backgroundColor: '#008496'}]}
           onPress={() => setViewMode('epg')}>
+          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>📅</Text>
           <Text style={styles.smartersText}>EPG</Text>
         </TouchableOpacity>
@@ -344,24 +355,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   headerContainer: { paddingBottom: 10 },
   topHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center' },
+  brandingContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333'
+  },
   welcomeText: { color: '#888', fontSize: 12 },
   userNameText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  profileButton: {
-    elevation: 4,
-  },
+  profileButton: { elevation: 4 },
   profileBadge: { width: 45, height: 45, borderRadius: 22.5, justifyContent: 'center', alignItems: 'center' },
-  profileIconText: {
-    fontSize: 22,
-  },
-  homeContainer: {
-    flex: 1,
-  },
-  smartersGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 10,
-    justifyContent: 'space-between',
-  },
+  profileIconText: { fontSize: 22 },
+  homeContainer: { flex: 1 },
+  smartersGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 10, justifyContent: 'space-between' },
   smartersButton: {
     width: '47%',
     height: 120,
@@ -370,90 +381,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  smartersIcon: {
-    fontSize: 35,
-    marginBottom: 8,
-  },
-  smartersText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  listTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    marginBottom: 10,
-  },
-  backToHome: {
-    padding: 5,
-  },
-  backToHomeText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  viewModeTitle: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  section: {
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 20,
-    marginBottom: 15,
-  },
-  epgPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  epgText: {
-    color: '#ffffff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 20,
-  },
-  epgSubText: {
-    color: '#888',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  logoutButton: {
-    marginTop: 20,
-    marginBottom: 40,
-    alignSelf: 'center',
-    padding: 10,
-  },
-  logoutText: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#888',
-    fontSize: 16,
-  },
+  buttonGradient: { ...StyleSheet.absoluteFillObject },
+  smartersIcon: { fontSize: 35, marginBottom: 8 },
+  smartersText: { color: '#ffffff', fontSize: 14, fontWeight: '800', letterSpacing: 1 },
+  listTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 15, marginBottom: 10 },
+  backToHome: { padding: 5 },
+  backToHomeText: { fontSize: 14, fontWeight: '600' },
+  viewModeTitle: { color: '#ffffff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+  section: { marginTop: 10, marginBottom: 20 },
+  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 20, marginBottom: 15 },
+  epgPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  epgText: { color: '#ffffff', fontSize: 22, fontWeight: 'bold', marginTop: 20 },
+  epgSubText: { color: '#888', fontSize: 16, textAlign: 'center', marginTop: 10 },
+  logoutButton: { marginTop: 20, marginBottom: 40, alignSelf: 'center', padding: 10 },
+  logoutText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
+  emptyContainer: { padding: 40, alignItems: 'center' },
+  emptyText: { color: '#888', fontSize: 16 },
   searchContainer: { paddingHorizontal: 20, marginBottom: 15 },
   searchInput: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 15, color: '#fff', borderWidth: 1, borderColor: '#333' },
   categoryList: { paddingLeft: 20, marginBottom: 15 },
