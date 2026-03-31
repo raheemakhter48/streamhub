@@ -13,7 +13,7 @@ const generateToken = (id) => {
     throw new Error('Server configuration error: JWT_SECRET is missing');
   }
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
+    expiresIn: process.env.JWT_EXPIRE || '30d'
   });
 };
 

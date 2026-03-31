@@ -125,14 +125,31 @@ router.post('/credentials', protect, async (req, res, next) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase credentials error:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Database error while saving credentials: ' + error.message
+      });
+    }
+
+    if (!credentials) {
+      console.error('❌ No credentials returned after upsert');
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to save credentials - no data returned'
+      });
+    }
 
     res.json({
       success: true,
-      message: 'IPTV credentials saved successfully',
       data: {
         id: credentials.id,
         providerName: credentials.provider_name,
+        username: credentials.username ? '***' : null,
+        serverUrl: credentials.server_url,
+        m3uUrl: credentials.m3u_url,
+        epgUrl: credentials.epg_url,
         hasCredentials: true
       }
     });
