@@ -1,3 +1,13 @@
+---
+title: Streamflow API
+emoji: 📺
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # StreamFlow - Ultra-fast IPTV Streaming Platform
 
 StreamFlow ek complete IPTV streaming solution hai jo web aur mobile dono platforms par kaam karta hai. Ye platform live TV channels stream karne ke liye design kiya gaya hai with ultra-fast playback aur smooth user experience.

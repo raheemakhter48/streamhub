@@ -32,7 +32,11 @@ const DashboardScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const channelsPerPage = 40; // Reduced for smoother scrolling with 12k items
+  const channelsPerPage = 40;
+
+  // Updated colors from logo: Teal/Cyan (#00A8B5) and Deep Blue (#004E92)
+  const primaryColor = '#00A8B5';
+  const secondaryColor = '#004E92';
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -131,7 +135,7 @@ const DashboardScreen: React.FC = () => {
           style={styles.profileButton}
           onPress={() => (navigation as any).navigate('Setup')}>
           <LinearGradient
-            colors={['#3b82f6', '#2563eb']}
+            colors={[primaryColor, secondaryColor]}
             style={styles.profileBadge}>
             <Text style={styles.profileIconText}>⚙️</Text>
           </LinearGradient>
@@ -140,28 +144,28 @@ const DashboardScreen: React.FC = () => {
 
       <View style={styles.smartersGrid}>
         <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#1e3a8a'}]}
+          style={[styles.smartersButton, {backgroundColor: '#002C31'}]}
           onPress={() => setViewMode('live')}>
           <Text style={styles.smartersIcon}>📺</Text>
           <Text style={styles.smartersText}>LIVE TV</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#581c87'}]}
+          style={[styles.smartersButton, {backgroundColor: '#004A55'}]}
           onPress={() => setViewMode('movie')}>
           <Text style={styles.smartersIcon}>🎬</Text>
           <Text style={styles.smartersText}>MOVIES</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#14532d'}]}
+          style={[styles.smartersButton, {backgroundColor: '#006B7B'}]}
           onPress={() => setViewMode('series')}>
           <Text style={styles.smartersIcon}>🎭</Text>
           <Text style={styles.smartersText}>SERIES</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#78350f'}]}
+          style={[styles.smartersButton, {backgroundColor: '#008496'}]}
           onPress={() => setViewMode('epg')}>
           <Text style={styles.smartersIcon}>📅</Text>
           <Text style={styles.smartersText}>EPG</Text>
@@ -218,7 +222,7 @@ const DashboardScreen: React.FC = () => {
             setSelectedCategory('All');
             setSearchQuery('');
           }}>
-          <Text style={styles.backToHomeText}>← Home</Text>
+          <Text style={[styles.backToHomeText, {color: primaryColor}]}>← Home</Text>
         </TouchableOpacity>
         <Text style={styles.viewModeTitle}>
           {viewMode.toUpperCase()}
@@ -227,7 +231,7 @@ const DashboardScreen: React.FC = () => {
 
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, {borderColor: secondaryColor}]}
           placeholder={`Search ${viewMode}...`}
           placeholderTextColor="#666"
           value={searchQuery}
@@ -243,7 +247,7 @@ const DashboardScreen: React.FC = () => {
           <TouchableOpacity
             style={[
               styles.categoryChip,
-              selectedCategory === item && styles.categoryChipActive,
+              selectedCategory === item && {backgroundColor: primaryColor, borderColor: primaryColor},
             ]}
             onPress={() => setSelectedCategory(item)}>
             <Text
@@ -264,7 +268,7 @@ const DashboardScreen: React.FC = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={primaryColor} />
         <Text style={styles.loadingText}>Synchronizing streams...</Text>
       </View>
     );
@@ -284,7 +288,7 @@ const DashboardScreen: React.FC = () => {
             <RefreshControl 
               refreshing={refreshing} 
               onRefresh={loadData} 
-              tintColor="#3b82f6" 
+              tintColor={primaryColor}
             />
           }
         />
@@ -293,7 +297,7 @@ const DashboardScreen: React.FC = () => {
           <TouchableOpacity 
             style={styles.backToHome}
             onPress={() => setViewMode('home')}>
-            <Text style={styles.backToHomeText}>← Home</Text>
+            <Text style={[styles.backToHomeText, {color: primaryColor}]}>← Home</Text>
           </TouchableOpacity>
           <Text style={styles.epgText}>EPG / TV Guide Coming Soon</Text>
           <Text style={styles.epgSubText}>We are working on integrating the TV schedule for your channels.</Text>
@@ -318,7 +322,7 @@ const DashboardScreen: React.FC = () => {
             <RefreshControl 
               refreshing={refreshing} 
               onRefresh={loadData} 
-              tintColor="#3b82f6" 
+              tintColor={primaryColor}
             />
           }
           contentContainerStyle={{paddingBottom: 20}}
@@ -393,7 +397,6 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   backToHomeText: {
-    color: '#3b82f6',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -454,8 +457,7 @@ const styles = StyleSheet.create({
   searchContainer: { paddingHorizontal: 20, marginBottom: 15 },
   searchInput: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 15, color: '#fff', borderWidth: 1, borderColor: '#333' },
   categoryList: { paddingLeft: 20, marginBottom: 15 },
-  categoryChip: { paddingHorizontal: 16, paddingVertical: 8, marginRight: 10, borderRadius: 20, backgroundColor: '#1a1a1a' },
-  categoryChipActive: { backgroundColor: '#3b82f6' },
+  categoryChip: { paddingHorizontal: 16, paddingVertical: 8, marginRight: 10, borderRadius: 20, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#333' },
   categoryText: { color: '#888', fontWeight: 'bold' },
   categoryTextActive: { color: '#fff' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
