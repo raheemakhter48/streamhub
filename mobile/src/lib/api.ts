@@ -2,20 +2,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../config/api';
 
-// Get auth token from AsyncStorage
 const getToken = async (): Promise<string | null> => {
   try {
     return await AsyncStorage.getItem('auth_token');
   } catch (error) {
-    console.error('Error getting token:', error);
     return null;
   }
 };
 
-// API request helper
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const token = await getToken();
-  
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
@@ -27,141 +23,65 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: `HTTP ${response.status}: Request failed` }));
-      throw new Error(error.message || `Request failed with status ${response.status}`);
+      const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
+      throw new Error(error.message || 'Request failed');
     }
-
     return response.json();
   } catch (error: any) {
-    if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
-      throw new Error(`Cannot connect to server. Make sure backend is running at ${API_URL.replace('/api', '')} and phone is on same WiFi.`);
-    }
     throw error;
   }
 };
 
-// Auth API
 export const authAPI = {
-  register: async (email: string, password: string) => {
-    const data = await apiRequest('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    if (data.token) {
-      await AsyncStorage.setItem('auth_token', data.token);
-    }
-    return data;
-  },
-
   login: async (email: string, password: string) => {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    if (data.token) {
-      await AsyncStorage.setItem('auth_token', data.token);
-    }
+    if (data.token) await AsyncStorage.setItem('auth_token', data.token);
     return data;
   },
-
-  logout: async () => {
-    await AsyncStorage.removeItem('auth_token');
-  },
-
-  getCurrentUser: async () => {
-    return apiRequest('/auth/me');
-  },
+  logout: async () => await AsyncStorage.removeItem('auth_token'),
+  getCurrentUser: async () => apiRequest('/auth/me'),
 };
 
-// IPTV API
 export const iptvAPI = {
-  getCredentials: async () => {
-    return apiRequest('/iptv/credentials');
-  },
-
-  saveCredentials: async (credentials: {
-    providerName?: string;
-    username?: string;
-    password?: string;
-    serverUrl?: string;
-    m3uUrl?: string;
-    m3uContent?: string;
-  }) => {
-    return apiRequest('/iptv/credentials', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  },
-
+  getCredentials: async () => apiRequest('/iptv/credentials'),
+  saveCredentials: async (credentials: any) => apiRequest('/iptv/credentials', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  }),
   getPlaylist: async () => {
     const token = await getToken();
     const response = await fetch(`${API_URL}/iptv/playlist`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Failed to fetch playlist' }));
-      throw new Error(error.message || 'Failed to fetch playlist');
-    }
-    
+    return response.text();
+  },
+  getEPG: async () => {
+    const token = await getToken();
+    const response = await fetch(`${API_URL}/iptv/epg`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return response.text();
   },
 };
 
-// Favorites API
-export const favoritesAPI = {
-  getFavorites: async () => {
-    const data = await apiRequest('/favorites');
-    return data.data || [];
-  },
-
-  addFavorite: async (channel: {
-    channelName: string;
-    channelUrl: string;
-    channelLogo?: string;
-    category?: string;
-  }) => {
-    return apiRequest('/favorites', {
-      method: 'POST',
-      body: JSON.stringify(channel),
-    });
-  },
-
-  removeFavorite: async (channelUrl: string) => {
-    return apiRequest(`/favorites/${encodeURIComponent(channelUrl)}`, {
-      method: 'DELETE',
-    });
-  },
-};
-
-// Recently Watched API
-export const recentlyWatchedAPI = {
-  getRecentlyWatched: async () => {
-    const data = await apiRequest('/favorites/recently-watched');
-    return data.data || [];
-  },
-
-  addRecentlyWatched: async (channel: {
-    channelName: string;
-    channelUrl: string;
-    channelLogo?: string;
-    category?: string;
-  }) => {
-    return apiRequest('/favorites/recently-watched', {
-      method: 'POST',
-      body: JSON.stringify(channel),
-    });
-  },
-};
-
-// Stream API
 export const streamAPI = {
+  /**
+   * 12k channels ke liye Smart Proxy:
+   * Agar stream URL direct block hai, to backend proxy use karega.
+   * Hum headers bhi pass kar rahe hain jo backend proxy use kar sake.
+   */
   getProxyUrl: (streamUrl: string) => {
     if (!streamUrl) return '';
-    // Automatically use proxy for all streams to bypass ISP blocking and inject headers
-    return `${API_URL}/stream/proxy?url=${encodeURIComponent(streamUrl)}`;
+
+    // Encode the URL and add common IPTV headers for the backend to use
+    const encodedUrl = encodeURIComponent(streamUrl);
+    const userAgent = encodeURIComponent('VLC/3.0.11');
+
+    // Backend should be configured to read these query params
+    return `${API_URL}/stream/proxy?url=${encodedUrl}&agent=${userAgent}`;
   },
 
   resolveUrl: async (streamUrl: string) => {
@@ -169,11 +89,34 @@ export const streamAPI = {
       const response = await fetch(
         `${API_URL}/stream/resolve?url=${encodeURIComponent(streamUrl)}`
       );
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error) {
-      console.error('Error resolving URL:', error);
       return { success: false, finalUrl: streamUrl };
     }
   },
+};
+
+export const favoritesAPI = {
+  getFavorites: async () => {
+    const data = await apiRequest('/favorites');
+    return data.data || [];
+  },
+  addFavorite: async (channel: any) => apiRequest('/favorites', {
+    method: 'POST',
+    body: JSON.stringify(channel),
+  }),
+  removeFavorite: async (url: string) => apiRequest(`/favorites/${encodeURIComponent(url)}`, {
+    method: 'DELETE',
+  }),
+};
+
+export const recentlyWatchedAPI = {
+  getRecentlyWatched: async () => {
+    const data = await apiRequest('/favorites/recently-watched');
+    return data.data || [];
+  },
+  addRecentlyWatched: async (channel: any) => apiRequest('/favorites/recently-watched', {
+    method: 'POST',
+    body: JSON.stringify(channel),
+  }),
 };

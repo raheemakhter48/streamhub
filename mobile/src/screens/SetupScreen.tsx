@@ -26,6 +26,7 @@ const SetupScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState('');
   const [m3uUrl, setM3uUrl] = useState('');
+  const [epgUrl, setEpgUrl] = useState('');
   const [m3uContent, setM3uContent] = useState('');
 
   useEffect(() => {
@@ -45,6 +46,7 @@ const SetupScreen: React.FC = () => {
         setUsername(creds.username || '');
         setServerUrl(creds.serverUrl || '');
         setM3uUrl(creds.m3uUrl || '');
+        setEpgUrl(creds.epgUrl || '');
       }
     } catch (error) {
       console.error('Error loading credentials:', error);
@@ -81,6 +83,7 @@ const SetupScreen: React.FC = () => {
           return;
         }
         credentials.m3uUrl = m3uUrl.trim();
+        credentials.epgUrl = epgUrl.trim();
       } else if (activeTab === 'credentials') {
         if (!serverUrl.trim() || !username.trim() || !password.trim()) {
           Alert.alert('Error', 'Please fill in all fields');
@@ -158,20 +161,36 @@ const SetupScreen: React.FC = () => {
           </View>
 
           {activeTab === 'm3u' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>M3U Playlist URL</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="https://server.com/playlist.m3u"
-                  placeholderTextColor="#666"
-                  value={m3uUrl}
-                  onChangeText={setM3uUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                />
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>M3U Playlist URL</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="https://server.com/playlist.m3u"
+                    placeholderTextColor="#666"
+                    value={m3uUrl}
+                    onChangeText={setM3uUrl}
+                    keyboardType="url"
+                    autoCapitalize="none"
+                  />
+                </View>
               </View>
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>EPG XMLTV URL (Optional)</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="https://server.com/epg.xml.gz"
+                    placeholderTextColor="#666"
+                    value={epgUrl}
+                    onChangeText={setEpgUrl}
+                    keyboardType="url"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+            </>
           )}
 
           {activeTab === 'credentials' && (
@@ -217,6 +236,21 @@ const SetupScreen: React.FC = () => {
                       autoCapitalize="none"
                     />
                   </View>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>EPG XMLTV URL (Optional)</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="https://server.com/epg.xml.gz"
+                    placeholderTextColor="#666"
+                    value={epgUrl}
+                    onChangeText={setEpgUrl}
+                    keyboardType="url"
+                    autoCapitalize="none"
+                  />
                 </View>
               </View>
             </>

@@ -31,6 +31,7 @@ const Setup = () => {
   const [password, setPassword] = useState("");
   const [serverUrl, setServerUrl] = useState("");
   const [m3uUrl, setM3uUrl] = useState("");
+  const [epgUrl, setEpgUrl] = useState("");
   const [m3uContent, setM3uContent] = useState("");
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "m3u");
 
@@ -63,6 +64,7 @@ const Setup = () => {
         setPassword(""); // Don't show password
         setServerUrl(credentials.serverUrl || "");
         setM3uUrl(credentials.m3uUrl || "");
+        setEpgUrl(credentials.epgUrl || "");
       }
     } catch (error) {
       console.error("Error loading credentials:", error);
@@ -129,6 +131,7 @@ const Setup = () => {
         password,
         serverUrl,
         m3uUrl: generatedM3UUrl,
+        epgUrl: epgUrl || undefined,
       });
 
       if (!data.success) {
@@ -161,6 +164,7 @@ const Setup = () => {
       const data = await iptvAPI.saveCredentials({
         providerName: providerName || undefined,
         m3uUrl,
+        epgUrl: epgUrl || undefined,
       });
 
       if (!data.success) {
@@ -263,70 +267,76 @@ const Setup = () => {
                       placeholder="e.g., MyIPTV"
                       value={providerName}
                       onChange={(e) => setProviderName(e.target.value)}
-                      className="bg-secondary/50"
+                      className="bg-secondary/50 border-glass-border"
                       disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="server-url">Server URL</Label>
+                    <Label htmlFor="server_url">Server URL</Label>
                     <Input
-                      id="server-url"
+                      id="server_url"
                       type="url"
-                      placeholder="https://your-iptv-server.com"
+                      placeholder="http://iptv-provider.com:8080"
                       value={serverUrl}
                       onChange={(e) => setServerUrl(e.target.value)}
                       required
-                      className="bg-secondary/50"
+                      className="bg-secondary/50 border-glass-border"
                       disabled={isLoading}
                     />
                     <p className="text-xs text-muted-foreground">
                       Your IPTV server URL (e.g., https://example.com:8080)
                     </p>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input
+                        id="username"
+                        type="text"
+                        placeholder="Username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                        className="bg-secondary/50 border-glass-border"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="bg-secondary/50 border-glass-border"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
+                    <Label htmlFor="epg_url_xtream">EPG XMLTV URL (Optional - will auto-generate if empty)</Label>
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="Your IPTV username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      className="bg-secondary/50"
+                      id="epg_url_xtream"
+                      type="url"
+                      placeholder="https://example.com/epg.xml.gz"
+                      value={epgUrl}
+                      onChange={(e) => setEpgUrl(e.target.value)}
+                      className="bg-secondary/50 border-glass-border"
                       disabled={isLoading}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="Your IPTV password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="bg-secondary/50"
-                      disabled={isLoading}
-                    />
-                  </div>
+
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">
                       We'll automatically generate your M3U playlist URL from your credentials.
                     </p>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-primary hover:bg-primary/90"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save & Continue"
-                    )}
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Tv className="w-4 h-4 mr-2" />}
+                    Save & Start Watching
                   </Button>
                 </form>
               </TabsContent>
@@ -341,41 +351,45 @@ const Setup = () => {
                       placeholder="e.g., MyIPTV"
                       value={providerName}
                       onChange={(e) => setProviderName(e.target.value)}
-                      className="bg-secondary/50"
+                      className="bg-secondary/50 border-glass-border"
                       disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="m3u-url">M3U Playlist URL</Label>
+                    <Label htmlFor="m3u_url">M3U Playlist URL</Label>
                     <Input
-                      id="m3u-url"
+                      id="m3u_url"
                       type="url"
-                      placeholder="https://example.com/playlist.m3u8"
+                      placeholder="https://example.com/playlist.m3u"
                       value={m3uUrl}
                       onChange={(e) => setM3uUrl(e.target.value)}
                       required
-                      className="bg-secondary/50"
+                      className="bg-secondary/50 border-glass-border"
                       disabled={isLoading}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="epg_url">EPG XMLTV URL (Optional)</Label>
+                    <Input
+                      id="epg_url"
+                      type="url"
+                      placeholder="https://example.com/epg.xml.gz"
+                      value={epgUrl}
+                      onChange={(e) => setEpgUrl(e.target.value)}
+                      className="bg-secondary/50 border-glass-border"
+                      disabled={isLoading}
+                    />
+                  </div>
+
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">
                       Your M3U URL is the direct link to your IPTV playlist. It usually ends with .m3u or .m3u8
                     </p>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-primary hover:bg-primary/90"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save & Continue"
-                    )}
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Tv className="w-4 h-4 mr-2" />}
+                    Save & Start Watching
                   </Button>
                 </form>
               </TabsContent>

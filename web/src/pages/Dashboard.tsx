@@ -9,12 +9,15 @@ import { useTheme } from "next-themes";
 import ChannelCard from "@/components/ChannelCard";
 import CategoryFilter from "@/components/CategoryFilter";
 
+export type ContentType = 'live' | 'movie' | 'series';
+
 interface Channel {
   name: string;
   url: string;
   logo?: string;
   group?: string;
   quality?: "HD" | "SD";
+  type?: ContentType;
 }
 
 interface RecentlyWatched {
@@ -29,6 +32,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const [user, setUser] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<ContentType | 'home' | 'epg'>('home');
   const [channels, setChannels] = useState<Channel[]>([]);
   const [recentlyWatched, setRecentlyWatched] = useState<RecentlyWatched[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +43,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFiltering, setIsFiltering] = useState(false);
-  const channelsPerPage = 100; // Show 100 channels per page for performance
+  const channelsPerPage = 100;
 
   useEffect(() => {
     checkAuth();
@@ -59,6 +63,10 @@ const Dashboard = () => {
     
     let filtered = [...channels];
 
+    if (viewMode !== 'home' && viewMode !== 'epg') {
+      filtered = filtered.filter((ch) => ch.type === viewMode);
+    }
+
     if (showFavoritesOnly) {
       filtered = filtered.filter((ch) => favorites.includes(ch.url));
     }
@@ -76,7 +84,7 @@ const Dashboard = () => {
     }
 
     return filtered;
-  }, [channels, searchQuery, selectedCategory, showFavoritesOnly, favorites, isFiltering]);
+  }, [channels, searchQuery, selectedCategory, showFavoritesOnly, favorites, isFiltering, viewMode]);
 
   // Paginated channels for display
   const paginatedChannels = useMemo(() => {
@@ -203,11 +211,24 @@ const Dashboard = () => {
         const isSD = /SD|480/i.test(channelName);
         const quality = isHD ? "HD" : isSD ? "SD" : undefined;
 
+        const group = groupMatch ? groupMatch[1] : "Other";
+        let type: ContentType = 'live';
+        
+        if (group) {
+          const lowerGroup = group.toLowerCase();
+          if (lowerGroup.includes('movie') || lowerGroup.includes('vod')) {
+            type = 'movie';
+          } else if (lowerGroup.includes('series') || lowerGroup.includes('tv show')) {
+            type = 'series';
+          }
+        }
+
         currentChannel = {
           name: channelName,
           logo: logoMatch ? logoMatch[1] : undefined,
-          group: groupMatch ? groupMatch[1] : "Other",
+          group,
           quality,
+          type,
         };
       } else if (line && !line.startsWith("#") && currentChannel.name) {
         channels.push({
@@ -259,7 +280,7 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const categories = ["All", ...Array.from(new Set(channels.map((ch) => ch.group || "Other")))];
+  const categories = ["All", ...Array.from(new Set(channels.filter(ch => viewMode === 'home' || ch.type === viewMode).map((ch) => ch.group || "Other")))];
 
   if (isLoading) {
     return (
@@ -300,7 +321,7 @@ const Dashboard = () => {
       <header className="glass-card border-b border-glass-border sticky top-0 z-50 backdrop-blur-xl">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setViewMode('home')}>
               <Tv className="w-8 h-8 text-primary" />
               <span className="text-2xl font-bold neon-text">StreamVault</span>
             </div>
@@ -343,134 +364,135 @@ const Dashboard = () => {
       </header>
 
       <div className="container mx-auto px-6 py-8">
-        {/* Recently Watched Section */}
-        {recentlyWatched.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-5 h-5 text-primary" />
-              <h2 className="text-2xl font-bold">Recently Watched</h2>
+        {viewMode === 'home' ? (
+          <div className="space-y-12">
+            {/* Smarters Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div 
+                onClick={() => setViewMode('live')}
+                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-600 group-hover:from-blue-800 group-hover:to-blue-500 transition-colors" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                  <Tv className="w-16 h-16 mb-2" />
+                  <span className="text-xl font-black tracking-widest">LIVE TV</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setViewMode('movie')}
+                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900 to-purple-600 group-hover:from-purple-800 group-hover:to-purple-500 transition-colors" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                  <Tv className="w-16 h-16 mb-2" />
+                  <span className="text-xl font-black tracking-widest">MOVIES</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setViewMode('series')}
+                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-green-900 to-green-600 group-hover:from-green-800 group-hover:to-green-500 transition-colors" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                  <Tv className="w-16 h-16 mb-2" />
+                  <span className="text-xl font-black tracking-widest">SERIES</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setViewMode('epg')}
+                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-900 to-orange-600 group-hover:from-orange-800 group-hover:to-orange-500 transition-colors" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                  <Clock className="w-16 h-16 mb-2" />
+                  <span className="text-xl font-black tracking-widest">EPG</span>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
-              {recentlyWatched.map((item, index) => {
-                const channel: Channel = {
-                  name: item.channelName,
-                  url: item.channelUrl,
-                  logo: item.channelLogo || undefined,
-                  group: item.category || undefined,
-                };
-                return (
-                  <ChannelCard
-                    key={`recent-${item.channelUrl}-${index}`}
-                    channel={channel}
-                    isFavorite={favorites.includes(item.channelUrl)}
-                    onToggleFavorite={refreshFavorites}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
 
-        {/* Favorites Section */}
-        {favorites.length > 0 && !showFavoritesOnly && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Heart className="w-5 h-5 text-primary fill-primary" />
-              <h2 className="text-2xl font-bold">Favorites</h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
-              {channels
-                .filter((ch) => favorites.includes(ch.url))
-                .slice(0, 12)
-                .map((channel, index) => (
-                  <ChannelCard
-                    key={`fav-${channel.url}-${index}`}
-                    channel={channel}
-                    isFavorite={true}
-                    onToggleFavorite={refreshFavorites}
-                  />
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Search and Filters */}
-        <div className="mb-8 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search channels..."
-              value={searchDebounce}
-              onChange={(e) => setSearchDebounce(e.target.value)}
-              className="pl-10 bg-secondary/50 border-glass-border h-12"
-            />
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={showFavoritesOnly ? "default" : "outline"}
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className="gap-2"
-            >
-              <Heart className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
-              Favorites
-            </Button>
-          </div>
-
-          <CategoryFilter
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
-        </div>
-
-        {/* Channels Grid */}
-        {isFiltering ? (
-          <div className="text-center py-20">
-            <Tv className="w-16 h-16 text-primary mx-auto mb-4 animate-pulse" />
-            <p className="text-muted-foreground">Processing channels...</p>
-          </div>
-        ) : filteredChannels.length === 0 ? (
-          <div className="text-center py-20">
-            <Tv className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <p className="text-muted-foreground">No channels found</p>
-            {channels.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Try adjusting your search or category filter
-              </p>
+            {/* Recently Watched Section */}
+            {recentlyWatched.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-5 h-5 text-primary" />
+                  <h2 className="text-2xl font-bold">Continue Watching</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {recentlyWatched.slice(0, 6).map((item, index) => {
+                    const channel: Channel = {
+                      name: item.channelName,
+                      url: item.channelUrl,
+                      logo: item.channelLogo || undefined,
+                      group: item.category || undefined,
+                    };
+                    return (
+                      <ChannelCard
+                        key={`recent-${item.channelUrl}-${index}`}
+                        channel={channel}
+                        isFavorite={favorites.includes(item.channelUrl)}
+                        onToggleFavorite={refreshFavorites}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
+        ) : viewMode === 'epg' ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Button variant="ghost" onClick={() => setViewMode('home')} className="mb-8">
+              <ChevronLeft className="w-4 h-4 mr-2" /> Back to Home
+            </Button>
+            <Clock className="w-20 h-20 text-muted-foreground mb-6" />
+            <h2 className="text-3xl font-bold mb-2">EPG Coming Soon</h2>
+            <p className="text-muted-foreground max-w-md">
+              We are working on integrating the TV Guide so you can see what's playing on your favorite channels.
+            </p>
+          </div>
         ) : (
-          <>
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * channelsPerPage + 1).toLocaleString()} - {Math.min(currentPage * channelsPerPage, filteredChannels.length).toLocaleString()} of {filteredChannels.length.toLocaleString()} channels
-              </p>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
+          <div>
+            <div className="flex items-center justify-between mb-8">
+              <Button variant="ghost" onClick={() => setViewMode('home')}>
+                <ChevronLeft className="w-4 h-4 mr-2" /> Back to Home
+              </Button>
+              <h2 className="text-3xl font-bold uppercase tracking-widest">{viewMode}</h2>
+              <div className="w-24" /> {/* Spacer */}
             </div>
+
+            {/* Search and Filters */}
+            <div className="mb-8 space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  className="pl-10 h-12 bg-secondary/50 border-glass-border focus:ring-primary"
+                  placeholder={`Search ${viewMode}...`}
+                  value={searchDebounce}
+                  onChange={(e) => setSearchDebounce(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <CategoryFilter
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={setSelectedCategory}
+                />
+                
+                <Button
+                  variant={showFavoritesOnly ? "default" : "outline"}
+                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                  className="gap-2"
+                >
+                  <Heart className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
+                  Favorites
+                </Button>
+              </div>
+            </div>
+
+            {/* Channels Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {paginatedChannels.map((channel, index) => (
                 <ChannelCard
@@ -481,44 +503,40 @@ const Dashboard = () => {
                 />
               ))}
             </div>
+
+            {/* Empty State */}
+            {paginatedChannels.length === 0 && (
+              <div className="text-center py-20">
+                <Tv className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-xl text-muted-foreground">No content found</p>
+              </div>
+            )}
+
+            {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-6 flex justify-center gap-2">
+              <div className="mt-12 flex items-center justify-center gap-4">
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  First
-                </Button>
-                <Button
-                  variant="outline"
+                  size="icon"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Previous
+                  <ChevronLeft className="w-5 h-5" />
                 </Button>
-                <span className="flex items-center px-4 text-sm text-muted-foreground">
+                <span className="text-sm font-medium">
                   Page {currentPage} of {totalPages}
                 </span>
                 <Button
                   variant="outline"
+                  size="icon"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  Last
+                  <ChevronRight className="w-5 h-5" />
                 </Button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

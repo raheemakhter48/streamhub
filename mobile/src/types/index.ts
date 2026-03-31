@@ -1,3 +1,5 @@
+export type ContentType = 'live' | 'movie' | 'series';
+
 export interface Channel {
   name: string;
   url: string;
@@ -7,6 +9,7 @@ export interface Channel {
   tvgName?: string;
   tvgLogo?: string;
   isHD?: boolean;
+  type?: ContentType;
 }
 
 export interface User {

@@ -74,6 +74,7 @@ export const iptvAPI = {
     password?: string;
     serverUrl?: string;
     m3uUrl?: string;
+    epgUrl?: string;
     m3uContent?: string;
   }) => {
     return apiRequest('/iptv/credentials', {
@@ -92,6 +93,21 @@ export const iptvAPI = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Failed to fetch playlist' }));
       throw new Error(error.message || 'Failed to fetch playlist');
+    }
+    
+    return response.text();
+  },
+
+  getEPG: async () => {
+    const response = await fetch(`${API_URL}/iptv/epg`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to fetch EPG' }));
+      throw new Error(error.message || 'Failed to fetch EPG');
     }
     
     return response.text();

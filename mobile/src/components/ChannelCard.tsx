@@ -17,6 +17,8 @@ interface ChannelCardProps {
 }
 
 const {width} = Dimensions.get('window');
+// Smarters-style grid: 3 columns with better spacing
+const CARD_MARGIN = 6;
 const CARD_WIDTH = (width - 48) / 3;
 
 const ChannelCard: React.FC<ChannelCardProps> = ({
@@ -30,8 +32,11 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
     <TouchableOpacity
       style={styles.cardContainer}
       onPress={onPress}
-      activeOpacity={0.8}>
-      <View style={styles.card}>
+      activeOpacity={0.7}>
+      <LinearGradient
+        colors={['#252525', '#121212']}
+        style={styles.card}>
+
         <View style={styles.logoWrapper}>
           {logoUrl ? (
             <Image
@@ -40,42 +45,35 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
               resizeMode="contain"
             />
           ) : (
-            <LinearGradient
-              colors={['#2a2a2a', '#1a1a1a']}
-              style={styles.placeholderLogo}>
+            <View style={styles.placeholderLogo}>
               <Text style={styles.placeholderIcon}>📺</Text>
-            </LinearGradient>
+            </View>
           )}
+
+          {/* Top badges */}
+          <View style={styles.badgeContainer}>
+            {channel.isHD && (
+              <View style={styles.hdBadge}>
+                <Text style={styles.hdText}>HD</Text>
+              </View>
+            )}
+            {isFavorite && (
+              <Text style={styles.favoriteHeart}>❤️</Text>
+            )}
+          </View>
 
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            colors={['transparent', 'rgba(0,0,0,0.9)']}
             style={styles.overlay}
           />
-
-          {channel.isHD && (
-            <View style={styles.hdBadge}>
-              <Text style={styles.hdText}>HD</Text>
-            </View>
-          )}
-
-          {isFavorite && (
-            <View style={styles.favoriteBadge}>
-              <Text style={styles.favoriteText}>❤️</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.infoContainer}>
-          <Text style={styles.channelName} numberOfLines={1}>
+          <Text style={styles.channelName} numberOfLines={2}>
             {channel.name}
           </Text>
-          {channel.group && (
-            <Text style={styles.category} numberOfLines={1}>
-              {channel.group}
-            </Text>
-          )}
         </View>
-      </View>
+      </LinearGradient>
     </TouchableOpacity>
   );
 };
@@ -83,87 +81,81 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
 const styles = StyleSheet.create({
   cardContainer: {
     width: CARD_WIDTH,
-    marginHorizontal: 8,
-    marginVertical: 10,
-    borderRadius: 16,
-    elevation: 8,
+    margin: CARD_MARGIN,
+    borderRadius: 12,
+    elevation: 5,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
   },
   card: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#333',
+    height: CARD_WIDTH * 1.3, // Smarters typically uses portrait-style cards
   },
   logoWrapper: {
-    width: '100%',
-    height: CARD_WIDTH * 0.85,
-    position: 'relative',
+    flex: 1,
     backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
   logo: {
-    width: '100%',
-    height: '100%',
+    width: '80%',
+    height: '80%',
   },
   placeholderLogo: {
-    width: '100%',
-    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderIcon: {
-    fontSize: 24,
+    fontSize: 32,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  hdBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  hdText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  favoriteHeart: {
+    fontSize: 12,
   },
   overlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '40%',
-  },
-  hdBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  hdText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  favoriteBadge: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-  },
-  favoriteText: {
-    fontSize: 14,
+    height: '50%',
   },
   infoContainer: {
     padding: 8,
-    backgroundColor: '#1a1a1a',
+    minHeight: 45,
+    justifyContent: 'center',
   },
   channelName: {
     color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  category: {
-    color: '#888',
-    fontSize: 10,
-    marginTop: 2,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });
 
 export default ChannelCard;
-

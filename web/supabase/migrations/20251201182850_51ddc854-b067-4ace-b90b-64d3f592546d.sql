@@ -41,6 +41,8 @@ CREATE TABLE public.iptv_credentials (
   username TEXT,
   password TEXT,
   m3u_url TEXT,
+  epg_url TEXT,
+  m3u_content TEXT,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   UNIQUE(user_id)

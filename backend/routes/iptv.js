@@ -34,6 +34,26 @@ const generateM3UFromCredentials = (serverUrl, username, password) => {
   }
 };
 
+const generateEPGFromCredentials = (serverUrl, username, password) => {
+  try {
+    let cleanUrl = serverUrl.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = `http://${cleanUrl}`;
+    }
+    
+    const url = new URL(cleanUrl);
+    url.pathname = '/xmltv.php';
+    url.search = '';
+    url.searchParams.set('username', username);
+    url.searchParams.set('password', password);
+    return url.toString();
+  } catch (error) {
+    const baseUrl = serverUrl.trim().replace(/\/$/, '');
+    const protocol = baseUrl.startsWith('http') ? '' : 'http://';
+    return `${protocol}${baseUrl}/xmltv.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+  }
+};
+
 // @route   GET /api/iptv/credentials
 // @desc    Get user's IPTV credentials
 // @access  Private
@@ -64,6 +84,7 @@ router.get('/credentials', protect, async (req, res, next) => {
         username: credentials.username ? '***' : null,
         serverUrl: credentials.server_url,
         m3uUrl: credentials.m3u_url,
+        epgUrl: credentials.epg_url,
         hasCredentials: true
       }
     });
@@ -77,13 +98,15 @@ router.get('/credentials', protect, async (req, res, next) => {
 // @access  Private
 router.post('/credentials', protect, async (req, res, next) => {
   try {
-    const { providerName, username, password, serverUrl, m3uUrl, m3uContent } = req.body;
+    const { providerName, username, password, serverUrl, m3uUrl, epgUrl, m3uContent } = req.body;
 
     let finalM3uUrl = m3uUrl;
+    let finalEpgUrl = epgUrl;
 
-    // Generate M3U URL from credentials if provided
-    if (serverUrl && username && password && !m3uUrl) {
-      finalM3uUrl = generateM3UFromCredentials(serverUrl, username, password);
+    // Generate URLs from credentials if provided
+    if (serverUrl && username && password) {
+      if (!m3uUrl) finalM3uUrl = generateM3UFromCredentials(serverUrl, username, password);
+      if (!epgUrl) finalEpgUrl = generateEPGFromCredentials(serverUrl, username, password);
     }
 
     const { data: credentials, error } = await supabase
@@ -95,6 +118,7 @@ router.post('/credentials', protect, async (req, res, next) => {
         password: password || null,
         server_url: serverUrl || null,
         m3u_url: finalM3uUrl || null,
+        epg_url: finalEpgUrl || null,
         m3u_content: m3uContent || null,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
@@ -265,5 +289,46 @@ router.get('/playlist', protect, async (req, res, next) => {
   }
 });
 
-export default router;
+// @route   GET /api/iptv/epg
+// @desc    Fetch and return EPG (Electronic Program Guide)
+// @access  Private
+router.get('/epg', protect, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get EPG URL from credentials
+    const { data: credentials } = await supabase
+      .from('iptv_credentials')
+      .select('epg_url')
+      .eq('user_id', userId)
+      .single();
+    
+    if (!credentials || !credentials.epg_url) {
+      return res.status(404).json({
+        success: false,
+        message: 'No EPG URL configured'
+      });
+    }
 
+    console.log(`🌐 Fetching EPG from: ${credentials.epg_url}`);
+    
+    const response = await axios.get(credentials.epg_url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': '*/*'
+      }
+    });
+
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(response.data);
+  } catch (error) {
+    console.error('❌ EPG Fetch Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch EPG'
+    });
+  }
+});
+
+export default router;

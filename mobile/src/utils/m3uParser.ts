@@ -1,4 +1,4 @@
-import {Channel} from '../types';
+import {Channel, ContentType} from '../types';
 
 export const parseM3U = (m3uContent: string): Channel[] => {
   const channels: Channel[] = [];
@@ -25,12 +25,25 @@ export const parseM3U = (m3uContent: string): Channel[] => {
         const tvgLogoMatch = attributes.match(/tvg-logo="([^"]+)"/);
         const groupMatch = attributes.match(/group-title="([^"]+)"/);
         
+        const group = groupMatch ? groupMatch[1] : undefined;
+        let type: ContentType = 'live';
+        
+        if (group) {
+          const lowerGroup = group.toLowerCase();
+          if (lowerGroup.includes('movie') || lowerGroup.includes('vod')) {
+            type = 'movie';
+          } else if (lowerGroup.includes('series') || lowerGroup.includes('tv show')) {
+            type = 'series';
+          }
+        }
+        
         currentChannel = {
           name: channelName,
           tvgId: tvgIdMatch ? tvgIdMatch[1] : undefined,
           tvgName: tvgNameMatch ? tvgNameMatch[1] : undefined,
           tvgLogo: tvgLogoMatch ? tvgLogoMatch[1] : undefined,
-          group: groupMatch ? groupMatch[1] : undefined,
+          group: group,
+          type: type,
           isHD: /HD|1080|720/i.test(channelName) || /HD|1080|720/i.test(attributes),
         };
       }
