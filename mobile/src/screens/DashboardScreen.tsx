@@ -33,7 +33,7 @@ const DashboardScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const channelsPerPage = 40;
+  const channelsPerPage = 40; // Reduced for smoother scrolling with 12k items
 
   // Colors matched to your Logo
   const primaryColor = '#00A8B5'; // Teal
@@ -153,7 +153,6 @@ const DashboardScreen: React.FC = () => {
         <TouchableOpacity 
           style={[styles.smartersButton, {backgroundColor: '#002C31'}]}
           onPress={() => setViewMode('live')}>
-          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>📺</Text>
           <Text style={styles.smartersText}>LIVE TV</Text>
         </TouchableOpacity>
@@ -161,23 +160,20 @@ const DashboardScreen: React.FC = () => {
         <TouchableOpacity 
           style={[styles.smartersButton, {backgroundColor: '#004A55'}]}
           onPress={() => setViewMode('movie')}>
-          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>🎬</Text>
           <Text style={styles.smartersText}>MOVIES</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#006B7B'}]}
+          style={[styles.smartersButton, {backgroundColor: '#001A31'}]}
           onPress={() => setViewMode('series')}>
-          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>🎭</Text>
           <Text style={styles.smartersText}>SERIES</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#008496'}]}
+          style={[styles.smartersButton, {backgroundColor: '#003A45'}]}
           onPress={() => setViewMode('epg')}>
-          <LinearGradient colors={['rgba(0,168,181,0.2)', 'transparent']} style={styles.buttonGradient} />
           <Text style={styles.smartersIcon}>📅</Text>
           <Text style={styles.smartersText}>EPG</Text>
         </TouchableOpacity>

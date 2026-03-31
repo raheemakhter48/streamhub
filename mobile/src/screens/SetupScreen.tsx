@@ -118,13 +118,16 @@ const SetupScreen: React.FC = () => {
     }
   };
 
+  const secondaryColor = '#004E92'; // Deep Blue
+  const primaryColor = '#00A8B5'; // Teal
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerSection}>
           <Text style={styles.headerTitle}>Setup IPTV</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerSubtitle, {color: primaryColor}]}>
             Configure your playlist to start streaming live channels
           </Text>
         </View>
@@ -137,7 +140,10 @@ const SetupScreen: React.FC = () => {
           ].map((tab: any) => (
             <TouchableOpacity
               key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+              style={[
+                styles.tab, 
+                activeTab === tab.id && {backgroundColor: primaryColor, borderColor: primaryColor}
+              ]}
               onPress={() => setActiveTab(tab.id)}>
               <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
                 {tab.label}
@@ -146,10 +152,10 @@ const SetupScreen: React.FC = () => {
           ))}
         </View>
 
-        <View style={styles.formCard}>
+        <View style={[styles.formCard, {borderColor: secondaryColor}]}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Provider Name (Optional)</Text>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, {borderColor: '#333'}]}>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. My Premium IPTV"

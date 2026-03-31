@@ -137,9 +137,12 @@ const PlayerScreen: React.FC = () => {
     Alert.alert('Success', 'Stream URL copied to clipboard');
   };
 
+  const primaryColor = '#00A8B5'; // Teal
+  const secondaryColor = '#004E92'; // Deep Blue
+
   return (
-    <View style={[styles.container, {paddingTop: 0}]}>
-      <StatusBar hidden />
+    <View style={[styles.container, {paddingTop: insets.top}]}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Video Container */}
       <View style={styles.videoContainer}>
@@ -164,7 +167,7 @@ const PlayerScreen: React.FC = () => {
       <ScrollView style={styles.infoContainer} contentContainerStyle={styles.infoContent}>
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <Text style={styles.channelName}>{channel.name}</Text>
+            <Text style={styles.channelName} numberOfLines={1}>{channel.name}</Text>
             {channel.isHD && (
               <View style={styles.hdBadge}>
                 <Text style={styles.hdText}>HD</Text>
@@ -172,17 +175,17 @@ const PlayerScreen: React.FC = () => {
             )}
           </View>
           <TouchableOpacity
-            style={styles.favoriteButton}
+            style={[styles.favoriteButton, isFavorite && {backgroundColor: primaryColor}]}
             onPress={toggleFavorite}
             disabled={loading}>
-            <Text style={styles.favoriteIcon}>
-              {isFavorite ? '❤️' : '🤍'}
+            <Text style={[styles.favoriteIcon, isFavorite && {color: '#fff'}]}>
+              {isFavorite ? '★' : '☆'}
             </Text>
           </TouchableOpacity>
         </View>
 
         {channel.group && (
-          <Text style={styles.category}>Category: {channel.group}</Text>
+          <Text style={[styles.category, {color: primaryColor}]}>Category: {channel.group}</Text>
         )}
 
         <View style={styles.actionsContainer}>

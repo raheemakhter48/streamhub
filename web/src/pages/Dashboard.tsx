@@ -372,7 +372,7 @@ const Dashboard = () => {
                 onClick={() => setViewMode('live')}
                 className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-600 group-hover:from-blue-800 group-hover:to-blue-500 transition-colors" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#002C31] to-[#00A8B5] group-hover:from-[#003A45] group-hover:to-[#00D2D3] transition-colors" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   <Tv className="w-16 h-16 mb-2" />
                   <span className="text-xl font-black tracking-widest">LIVE TV</span>
@@ -383,7 +383,7 @@ const Dashboard = () => {
                 onClick={() => setViewMode('movie')}
                 className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-900 to-purple-600 group-hover:from-purple-800 group-hover:to-purple-500 transition-colors" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#004E92] to-[#00A8B5] group-hover:from-[#005FA3] group-hover:to-[#00D2D3] transition-colors" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   <Tv className="w-16 h-16 mb-2" />
                   <span className="text-xl font-black tracking-widest">MOVIES</span>
@@ -394,7 +394,7 @@ const Dashboard = () => {
                 onClick={() => setViewMode('series')}
                 className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-green-900 to-green-600 group-hover:from-green-800 group-hover:to-green-500 transition-colors" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#001C21] to-[#004E92] group-hover:from-[#002C31] group-hover:to-[#005FA3] transition-colors" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   <Tv className="w-16 h-16 mb-2" />
                   <span className="text-xl font-black tracking-widest">SERIES</span>
@@ -405,7 +405,7 @@ const Dashboard = () => {
                 onClick={() => setViewMode('epg')}
                 className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-900 to-orange-600 group-hover:from-orange-800 group-hover:to-orange-500 transition-colors" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#003A45] to-[#004E92] group-hover:from-[#004A55] group-hover:to-[#005FA3] transition-colors" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   <Clock className="w-16 h-16 mb-2" />
                   <span className="text-xl font-black tracking-widest">EPG</span>

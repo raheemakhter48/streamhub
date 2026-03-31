@@ -11,6 +11,7 @@ import {
   ScrollView,
   StatusBar,
   Dimensions,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAuth} from '../context/AuthContext';
@@ -26,6 +27,10 @@ const AuthScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Logo Colors
+  const primaryColor = '#00A8B5'; // Teal
+  const secondaryColor = '#004E92'; // Deep Blue
 
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -67,7 +72,7 @@ const AuthScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <LinearGradient
-        colors={['#1e1e1e', '#0a0a0a']}
+        colors={['#001C21', '#000000']}
         style={styles.gradient}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
@@ -77,11 +82,15 @@ const AuthScreen: React.FC = () => {
             keyboardShouldPersistTaps="handled">
             
             <View style={styles.topSection}>
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoEmoji}>📺</Text>
+              <View style={[styles.logoCircle, {borderColor: primaryColor}]}>
+                <Image 
+                  source={require('../assets/logo.png')}
+                  style={{width: 80, height: 80}}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.title}>StreamFlow</Text>
-              <Text style={styles.subtitle}>
+              <Text style={[styles.subtitle, {color: primaryColor}]}>
                 {isLogin ? 'Premium IPTV Streaming' : 'Join our streaming community'}
               </Text>
             </View>
