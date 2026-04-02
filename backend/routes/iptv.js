@@ -109,7 +109,10 @@ router.post('/credentials', protect, async (req, res, next) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase Error in credentials POST:', error.message);
+      throw error;
+    }
 
     // Clear cache when credentials change
     await supabase.from('playlist_cache').delete().eq('user_id', req.user.id);
