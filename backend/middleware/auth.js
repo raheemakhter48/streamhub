@@ -21,7 +21,7 @@ export const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       const { data: user, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id, email')
         .eq('id', decoded.id)
         .single();
