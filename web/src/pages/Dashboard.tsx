@@ -3,7 +3,7 @@ import { authAPI, iptvAPI, favoritesAPI, recentlyWatchedAPI } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, Search, Settings, Tv, Heart, Clock, Moon, Sun, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, Search, Settings, Tv, Heart, Clock, Moon, Sun, RefreshCw, ChevronLeft, ChevronRight, PlayCircle, Film, Library, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import ChannelCard from "@/components/ChannelCard";
@@ -43,7 +43,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFiltering, setIsFiltering] = useState(false);
-  const channelsPerPage = 100;
+  const channelsPerPage = 60;
 
   useEffect(() => {
     checkAuth();
@@ -57,7 +57,6 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  // Optimized filtering with useMemo for performance
   const filteredChannels = useMemo(() => {
     if (isFiltering) return [];
     
@@ -86,19 +85,11 @@ const Dashboard = () => {
     return filtered;
   }, [channels, searchQuery, selectedCategory, showFavoritesOnly, favorites, isFiltering, viewMode]);
 
-  // Paginated channels for display
   const paginatedChannels = useMemo(() => {
     const startIndex = (currentPage - 1) * channelsPerPage;
     const endIndex = startIndex + channelsPerPage;
     return filteredChannels.slice(startIndex, endIndex);
   }, [filteredChannels, currentPage]);
-
-  const totalPages = Math.ceil(filteredChannels.length / channelsPerPage);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedCategory, showFavoritesOnly]);
 
   const checkAuth = async () => {
     try {
@@ -116,18 +107,8 @@ const Dashboard = () => {
   const loadCredentialsAndChannels = async () => {
     try {
       const credentialsData = await iptvAPI.getCredentials();
-      
-      if (!credentialsData.success || !credentialsData.data) {
-        setHasCredentials(false);
-        setIsLoading(false);
-        return;
-      }
-
-      const credentials = credentialsData.data;
-      
-      if (credentials.m3uUrl || credentials.m3uContent) {
+      if (credentialsData.success && credentialsData.data) {
         setHasCredentials(true);
-        // Fetch playlist from backend (no CORS issues!)
         await parseM3UPlaylist();
       } else {
         setHasCredentials(false);
@@ -143,52 +124,15 @@ const Dashboard = () => {
   const parseM3UPlaylist = async () => {
     try {
       setIsLoading(true);
-      setIsFiltering(true);
-      
-      // Fetch playlist from backend API (no CORS issues!)
       const text = await iptvAPI.getPlaylist();
+      if (!text) return;
       
-      if (!text || text.trim().length === 0) {
-        throw new Error("Empty playlist received");
-      }
-      
-      // Validate M3U format
-      const hasExtInf = text.includes("#EXTINF");
-      const hasExtM3U = text.includes("#EXTM3U");
-      const hasHttpUrls = /https?:\/\//.test(text);
-      
-      if (!hasExtInf && !hasExtM3U && !hasHttpUrls) {
-        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-          throw new Error("Received HTML instead of M3U playlist");
-        }
-        throw new Error("Invalid M3U format received");
-      }
-      
-      // Parse channels
       const parsedChannels = parseM3U(text);
-      
-      if (parsedChannels.length === 0) {
-        toast.warning("No channels found in playlist");
-        setChannels([]);
-      } else {
-        setChannels(parsedChannels);
-        toast.success(`Successfully loaded ${parsedChannels.length.toLocaleString()} channels!`);
-      }
-      setIsFiltering(false);
+      setChannels(parsedChannels);
     } catch (error: any) {
-      console.error("Error parsing M3U:", error);
-      toast.error(error.message || "Failed to load channels");
+      toast.error("Failed to load channels");
     } finally {
       setIsLoading(false);
-      setIsFiltering(false);
-    }
-  };
-
-  const handleRefreshChannels = async () => {
-    try {
-      await parseM3UPlaylist();
-    } catch (error: any) {
-      toast.error("Failed to refresh channels");
     }
   };
 
@@ -199,346 +143,205 @@ const Dashboard = () => {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-
       if (line.startsWith("#EXTINF:")) {
         const nameMatch = line.match(/,(.+)$/);
         const logoMatch = line.match(/tvg-logo="([^"]+)"/);
         const groupMatch = line.match(/group-title="([^"]+)"/);
-        
-        // Detect HD/SD quality from channel name
         const channelName = nameMatch ? nameMatch[1].trim() : "Unknown";
-        const isHD = /HD|1080|720|FHD|UHD|4K/i.test(channelName);
-        const isSD = /SD|480/i.test(channelName);
-        const quality = isHD ? "HD" : isSD ? "SD" : undefined;
-
         const group = groupMatch ? groupMatch[1] : "Other";
-        let type: ContentType = 'live';
         
+        let type: ContentType = 'live';
         if (group) {
           const lowerGroup = group.toLowerCase();
-          if (lowerGroup.includes('movie') || lowerGroup.includes('vod')) {
-            type = 'movie';
-          } else if (lowerGroup.includes('series') || lowerGroup.includes('tv show')) {
-            type = 'series';
-          }
+          if (lowerGroup.includes('movie')) type = 'movie';
+          else if (lowerGroup.includes('series')) type = 'series';
         }
 
         currentChannel = {
           name: channelName,
           logo: logoMatch ? logoMatch[1] : undefined,
           group,
-          quality,
           type,
         };
       } else if (line && !line.startsWith("#") && currentChannel.name) {
-        channels.push({
-          ...currentChannel,
-          url: line,
-        } as Channel);
+        channels.push({...currentChannel, url: line} as Channel);
         currentChannel = {};
       }
     }
-
     return channels;
   };
 
   const loadFavorites = async () => {
     try {
-      const favoritesList = await favoritesAPI.getFavorites();
-      setFavorites(favoritesList.map((fav: any) => fav.channelUrl));
-    } catch (error) {
-      console.error("Error loading favorites:", error);
-    }
+      const list = await favoritesAPI.getFavorites();
+      setFavorites(list.map((f: any) => f.channelUrl));
+    } catch (error) { console.error(error); }
   };
 
   const loadRecentlyWatched = async () => {
     try {
-      const data = await recentlyWatchedAPI.getRecentlyWatched();
-      setRecentlyWatched(data);
-    } catch (error) {
-      console.error("Error loading recently watched:", error);
-    }
+      const list = await recentlyWatchedAPI.getRecentlyWatched();
+      setRecentlyWatched(list);
+    } catch (error) { console.error(error); }
   };
-
-  const refreshFavorites = () => {
-    loadFavorites();
-  };
-
-  // Debounced search handler
-  const [searchDebounce, setSearchDebounce] = useState("");
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchQuery(searchDebounce);
-    }, 300); // 300ms debounce
-    
-    return () => clearTimeout(timer);
-  }, [searchDebounce]);
 
   const handleLogout = async () => {
-    authAPI.logout();
-    navigate("/");
+    await authAPI.logout();
+    navigate("/auth");
   };
 
-  const categories = ["All", ...Array.from(new Set(channels.filter(ch => viewMode === 'home' || ch.type === viewMode).map((ch) => ch.group || "Other")))];
+  const categories = useMemo(() => {
+    const filteredForMode = viewMode === 'home' || viewMode === 'epg' 
+      ? channels 
+      : channels.filter(ch => ch.type === viewMode);
+    const groups = new Set(filteredForMode.map(ch => ch.group || 'Other'));
+    return ['All', ...Array.from(groups).sort()];
+  }, [channels, viewMode]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Tv className="w-16 h-16 text-primary mx-auto mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Loading...</p>
+  const renderHomeMode = () => (
+    <div className="flex flex-col gap-8 p-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">
+            STREAMFLOW HUB
+          </h1>
+          <p className="text-muted-foreground">Welcome back, {user?.email?.split('@')[0]}</p>
+        </div>
+        <div className="flex gap-2">
+           <Button variant="outline" size="icon" onClick={() => navigate("/setup")}>
+             <Settings className="w-5 h-5" />
+           </Button>
+           <Button variant="outline" size="icon" onClick={handleLogout}>
+             <LogOut className="w-5 h-5" />
+           </Button>
         </div>
       </div>
-    );
-  }
 
-  if (!hasCredentials) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-            <Settings className="w-10 h-10 text-primary" />
-          </div>
-          <h2 className="text-3xl font-bold mb-4">Setup Required</h2>
-          <p className="text-muted-foreground mb-8">
-            Add your IPTV credentials to start streaming
-          </p>
-          <Button
-            onClick={() => navigate("/setup")}
-            className="bg-primary hover:bg-primary/90"
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { id: 'live', label: 'LIVE TV', icon: Tv, color: 'from-cyan-900 to-cyan-950' },
+          { id: 'movie', label: 'MOVIES', icon: Film, color: 'from-blue-900 to-blue-950' },
+          { id: 'series', label: 'SERIES', icon: Library, color: 'from-indigo-900 to-indigo-950' },
+          { id: 'epg', label: 'EPG GUIDE', icon: Calendar, color: 'from-teal-900 to-teal-950' },
+        ].map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setViewMode(item.id as any)}
+            className={`h-48 rounded-2xl bg-gradient-to-br ${item.color} border border-white/5 hover:border-cyan-500/50 transition-all group overflow-hidden relative`}
           >
-            Add IPTV Credentials
-          </Button>
-        </div>
+            <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <item.icon className="w-16 h-16 mb-4 mx-auto text-cyan-500 group-hover:scale-110 transition-transform" />
+            <span className="text-xl font-black tracking-widest text-white">{item.label}</span>
+          </button>
+        ))}
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="glass-card border-b border-glass-border sticky top-0 z-50 backdrop-blur-xl">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setViewMode('home')}>
-              <Tv className="w-8 h-8 text-primary" />
-              <span className="text-2xl font-bold neon-text">StreamVault</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRefreshChannels}
-                title="Refresh channels"
-                disabled={isLoading}
-              >
-                <RefreshCw className={`w-5 h-5 ${isLoading ? "animate-spin" : ""}`} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                title="Toggle theme"
-              >
-                {theme === "dark" ? (
-                  <Sun className="w-5 h-5" />
-                ) : (
-                  <Moon className="w-5 h-5" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/setup")}
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
-                <LogOut className="w-5 h-5" />
-              </Button>
-            </div>
+      {recentlyWatched.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Clock className="w-6 h-6 text-cyan-500" /> Continue Watching
+          </h2>
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {recentlyWatched.slice(0, 10).map((item, idx) => (
+              <ChannelCard
+                key={idx}
+                name={item.channelName}
+                url={item.channelUrl}
+                logo={item.channelLogo}
+                group={item.category}
+                isFavorite={favorites.includes(item.channelUrl)}
+                onClick={() => navigate(`/player?url=${encodeURIComponent(item.channelUrl)}&name=${encodeURIComponent(item.channelName)}`)}
+              />
+            ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderListView = () => (
+    <div className="flex flex-col h-full animate-in slide-in-from-bottom-4 duration-500">
+      <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setViewMode('home')}>
+              <ChevronLeft className="w-5 h-5 mr-2" /> Back
+            </Button>
+            <h1 className="text-2xl font-black text-cyan-500">{viewMode.toUpperCase()}</h1>
+          </div>
+          
+          <div className="flex-1 max-w-xl relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search channels..."
+              className="pl-10 bg-secondary/50"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant={showFavoritesOnly ? "default" : "outline"}
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={showFavoritesOnly ? "bg-red-500 hover:bg-red-600" : ""}
+            >
+              <Heart className={`w-4 h-4 mr-2 ${showFavoritesOnly ? "fill-white" : ""}`} />
+              Favorites
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleRefreshChannels}>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <CategoryFilter
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
         </div>
       </header>
 
-      <div className="container mx-auto px-6 py-8">
-        {viewMode === 'home' ? (
-          <div className="space-y-12">
-            {/* Smarters Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div 
-                onClick={() => setViewMode('live')}
-                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#002C31] to-[#00A8B5] group-hover:from-[#003A45] group-hover:to-[#00D2D3] transition-colors" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                  <Tv className="w-16 h-16 mb-2" />
-                  <span className="text-xl font-black tracking-widest">LIVE TV</span>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => setViewMode('movie')}
-                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#004E92] to-[#00A8B5] group-hover:from-[#005FA3] group-hover:to-[#00D2D3] transition-colors" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                  <Tv className="w-16 h-16 mb-2" />
-                  <span className="text-xl font-black tracking-widest">MOVIES</span>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => setViewMode('series')}
-                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#001C21] to-[#004E92] group-hover:from-[#002C31] group-hover:to-[#005FA3] transition-colors" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                  <Tv className="w-16 h-16 mb-2" />
-                  <span className="text-xl font-black tracking-widest">SERIES</span>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => setViewMode('epg')}
-                className="group relative h-48 rounded-3xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#003A45] to-[#004E92] group-hover:from-[#004A55] group-hover:to-[#005FA3] transition-colors" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                  <Clock className="w-16 h-16 mb-2" />
-                  <span className="text-xl font-black tracking-widest">EPG</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recently Watched Section */}
-            {recentlyWatched.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-5 h-5 text-primary" />
-                  <h2 className="text-2xl font-bold">Continue Watching</h2>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {recentlyWatched.slice(0, 6).map((item, index) => {
-                    const channel: Channel = {
-                      name: item.channelName,
-                      url: item.channelUrl,
-                      logo: item.channelLogo || undefined,
-                      group: item.category || undefined,
-                    };
-                    return (
-                      <ChannelCard
-                        key={`recent-${item.channelUrl}-${index}`}
-                        channel={channel}
-                        isFavorite={favorites.includes(item.channelUrl)}
-                        onToggleFavorite={refreshFavorites}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : viewMode === 'epg' ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Button variant="ghost" onClick={() => setViewMode('home')} className="mb-8">
-              <ChevronLeft className="w-4 h-4 mr-2" /> Back to Home
-            </Button>
-            <Clock className="w-20 h-20 text-muted-foreground mb-6" />
-            <h2 className="text-3xl font-bold mb-2">EPG Coming Soon</h2>
-            <p className="text-muted-foreground max-w-md">
-              We are working on integrating the TV Guide so you can see what's playing on your favorite channels.
-            </p>
+      <main className="flex-1 p-6 overflow-auto">
+        {isLoading && channels.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-4">
+            <RefreshCw className="w-12 h-12 text-cyan-500 animate-spin" />
+            <p className="text-lg animate-pulse">Loading your entertainment...</p>
           </div>
         ) : (
-          <div>
-            <div className="flex items-center justify-between mb-8">
-              <Button variant="ghost" onClick={() => setViewMode('home')}>
-                <ChevronLeft className="w-4 h-4 mr-2" /> Back to Home
-              </Button>
-              <h2 className="text-3xl font-bold uppercase tracking-widest">{viewMode}</h2>
-              <div className="w-24" /> {/* Spacer */}
-            </div>
-
-            {/* Search and Filters */}
-            <div className="mb-8 space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  className="pl-10 h-12 bg-secondary/50 border-glass-border focus:ring-primary"
-                  placeholder={`Search ${viewMode}...`}
-                  value={searchDebounce}
-                  onChange={(e) => setSearchDebounce(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <CategoryFilter
-                  categories={categories}
-                  selectedCategory={selectedCategory}
-                  onSelectCategory={setSelectedCategory}
-                />
-                
-                <Button
-                  variant={showFavoritesOnly ? "default" : "outline"}
-                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                  className="gap-2"
-                >
-                  <Heart className={`w-4 h-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
-                  Favorites
-                </Button>
-              </div>
-            </div>
-
-            {/* Channels Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {paginatedChannels.map((channel, index) => (
-                <ChannelCard
-                  key={`${channel.url}-${index}`}
-                  channel={channel}
-                  isFavorite={favorites.includes(channel.url)}
-                  onToggleFavorite={refreshFavorites}
-                />
-              ))}
-            </div>
-
-            {/* Empty State */}
-            {paginatedChannels.length === 0 && (
-              <div className="text-center py-20">
-                <Tv className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-xl text-muted-foreground">No content found</p>
-              </div>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-12 flex items-center justify-center gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <span className="text-sm font-medium">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
-            )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+            {paginatedChannels.map((channel, index) => (
+              <ChannelCard
+                key={`${channel.url}-${index}`}
+                {...channel}
+                isFavorite={favorites.includes(channel.url)}
+                onClick={() => navigate(`/player?url=${encodeURIComponent(channel.url)}&name=${encodeURIComponent(channel.name)}`)}
+              />
+            ))}
           </div>
         )}
-      </div>
+      </main>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background text-foreground selection:bg-cyan-500/30">
+      {!hasCredentials && !isLoading ? (
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+          <Tv className="w-20 h-20 text-cyan-500 mb-6 animate-bounce" />
+          <h1 className="text-3xl font-black mb-4">READY TO START STREAMING?</h1>
+          <p className="text-muted-foreground max-w-md mb-8">
+            Setup your IPTV credentials to unlock thousands of live channels, movies, and series.
+          </p>
+          <Button size="lg" onClick={() => navigate("/setup")} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:scale-105 transition-transform">
+            GET STARTED NOW
+          </Button>
+        </div>
+      ) : (
+        viewMode === 'home' ? renderHomeMode() : renderListView()
+      )}
     </div>
   );
 };

@@ -17,7 +17,6 @@ interface ChannelCardProps {
 }
 
 const {width} = Dimensions.get('window');
-// Smarters-style grid: 3 columns with better spacing
 const CARD_MARGIN = 6;
 const CARD_WIDTH = (width - 48) / 3;
 
@@ -26,15 +25,17 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   isFavorite,
   onPress,
 }) => {
-  const logoUrl = channel.logo || channel.tvgLogo;
+  const logoUrl = channel.logo || (channel as any).tvgLogo;
+  const primaryColor = '#00A8B5'; // Teal
+  const secondaryColor = '#004E92'; // Blue
 
   return (
     <TouchableOpacity
       style={styles.cardContainer}
       onPress={onPress}
-      activeOpacity={0.7}>
+      activeOpacity={0.8}>
       <LinearGradient
-        colors={['#252525', '#121212']}
+        colors={['#002E34', '#001518']}
         style={styles.card}>
 
         <View style={styles.logoWrapper}>
@@ -50,20 +51,16 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
             </View>
           )}
 
-          {/* Top badges */}
           <View style={styles.badgeContainer}>
-            {channel.isHD && (
-              <View style={styles.hdBadge}>
-                <Text style={styles.hdText}>HD</Text>
-              </View>
-            )}
             {isFavorite && (
-              <Text style={styles.favoriteHeart}>❤️</Text>
+              <View style={styles.favBadge}>
+                <Text style={styles.favText}>❤️</Text>
+              </View>
             )}
           </View>
 
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.9)']}
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
             style={styles.overlay}
           />
         </View>
@@ -73,6 +70,9 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
             {channel.name}
           </Text>
         </View>
+        
+        {/* Smarters-style bottom accent bar */}
+        <View style={[styles.accentBar, {backgroundColor: primaryColor}]} />
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -82,79 +82,73 @@ const styles = StyleSheet.create({
   cardContainer: {
     width: CARD_WIDTH,
     margin: CARD_MARGIN,
-    borderRadius: 12,
-    elevation: 5,
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.3,
     shadowRadius: 3,
   },
   card: {
-    borderRadius: 12,
-    overflow: 'hidden',
+    borderRadius: 10,
+    height: CARD_WIDTH * 1.3,
     borderWidth: 1,
-    borderColor: '#333',
-    height: CARD_WIDTH * 1.3, // Smarters typically uses portrait-style cards
+    borderColor: '#002E34',
   },
   logoWrapper: {
     flex: 1,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    backgroundColor: '#000',
   },
   logo: {
-    width: '80%',
-    height: '80%',
+    width: '75%',
+    height: '75%',
   },
   placeholderLogo: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderIcon: {
-    fontSize: 32,
+    fontSize: 28,
+    opacity: 0.5,
   },
   badgeContainer: {
     position: 'absolute',
-    top: 6,
-    left: 6,
-    right: 6,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    top: 5,
+    right: 5,
   },
-  hdBadge: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
+  favBadge: {
+    padding: 2,
   },
-  hdText: {
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  favoriteHeart: {
-    fontSize: 12,
+  favText: {
+    fontSize: 10,
   },
   overlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '50%',
+    height: '40%',
   },
   infoContainer: {
-    padding: 8,
-    minHeight: 45,
+    padding: 6,
+    backgroundColor: '#001F24',
     justifyContent: 'center',
+    minHeight: 40,
   },
   channelName: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 14,
+  },
+  accentBar: {
+    height: 2,
+    width: '100%',
   },
 });
 

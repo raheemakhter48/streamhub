@@ -11,6 +11,7 @@ import {
   StatusBar,
   SafeAreaView,
   Image,
+  Dimensions,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -19,6 +20,8 @@ import {iptvAPI, favoritesAPI, recentlyWatchedAPI} from '../lib/api';
 import {parseM3U, getCategories} from '../utils/m3uParser';
 import {Channel, Favorite, ContentType} from '../types';
 import ChannelCard from '../components/ChannelCard';
+
+const {width} = Dimensions.get('window');
 
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -33,11 +36,12 @@ const DashboardScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const channelsPerPage = 40; // Reduced for smoother scrolling with 12k items
+  const channelsPerPage = 40;
 
-  // Colors matched to your Logo
+  // Smarters Teal & Blue Theme
   const primaryColor = '#00A8B5'; // Teal
-  const secondaryColor = '#004E92'; // Deep Blue
+  const secondaryColor = '#004E92'; // Blue
+  const darkBg = '#001518';
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -47,7 +51,8 @@ const DashboardScreen: React.FC = () => {
     loadData();
   }, [isAuthenticated]);
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
+    if (!isRefresh) setIsLoading(true);
     try {
       const [credentialsData, favoritesData, watchedData] = await Promise.all([
         iptvAPI.getCredentials(),
@@ -55,7 +60,7 @@ const DashboardScreen: React.FC = () => {
         recentlyWatchedAPI.getRecentlyWatched(),
       ]);
 
-      if (credentialsData.success && (credentialsData.data.m3uUrl || credentialsData.data.m3uContent)) {
+      if (credentialsData.success) {
         await parseM3UPlaylist();
       }
 
@@ -66,6 +71,7 @@ const DashboardScreen: React.FC = () => {
       console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -119,127 +125,96 @@ const DashboardScreen: React.FC = () => {
     return filteredChannels.slice(0, currentPage * channelsPerPage);
   }, [filteredChannels, currentPage]);
 
-  const loadMore = () => {
-    if (paginatedChannels.length < filteredChannels.length) {
-      setCurrentPage(prev => prev + 1);
-    }
-  };
-
   const renderHomeMode = () => (
     <View style={styles.homeContainer}>
       <View style={styles.topHeader}>
         <View style={styles.brandingContainer}>
-           {/* Branding Logo Area */}
-          <View style={styles.logoCircle}>
-             <Text style={{fontSize: 24}}>📺</Text>
-          </View>
+          <LinearGradient
+            colors={[primaryColor, secondaryColor]}
+            style={styles.logoCircleGradient}>
+            <View style={styles.logoCircle}>
+               <Text style={{fontSize: 22}}>SF</Text>
+            </View>
+          </LinearGradient>
           <View>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.userNameText}>{user?.email?.split('@')[0] || 'Streamer'}</Text>
+            <Text style={styles.welcomeText}>StreamFlow Hub</Text>
+            <Text style={styles.userNameText}>{user?.email?.split('@')[0] || 'Guest'}</Text>
           </View>
         </View>
         <TouchableOpacity 
-          style={styles.profileButton}
+          style={styles.settingsButton}
           onPress={() => (navigation as any).navigate('Setup')}>
-          <LinearGradient
-            colors={[primaryColor, secondaryColor]}
-            style={styles.profileBadge}>
-            <Text style={styles.profileIconText}>⚙️</Text>
-          </LinearGradient>
+          <Text style={styles.settingsIcon}>⚙️</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.smartersGrid}>
-        <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#002C31'}]}
-          onPress={() => setViewMode('live')}>
-          <Text style={styles.smartersIcon}>📺</Text>
-          <Text style={styles.smartersText}>LIVE TV</Text>
+        <TouchableOpacity style={styles.gridItem} onPress={() => setViewMode('live')}>
+          <LinearGradient colors={['#002E34', '#001518']} style={styles.gridGradient}>
+            <Text style={styles.gridIcon}>📺</Text>
+            <Text style={styles.gridText}>LIVE TV</Text>
+          </LinearGradient>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#004A55'}]}
-          onPress={() => setViewMode('movie')}>
-          <Text style={styles.smartersIcon}>🎬</Text>
-          <Text style={styles.smartersText}>MOVIES</Text>
+        <TouchableOpacity style={styles.gridItem} onPress={() => setViewMode('movie')}>
+          <LinearGradient colors={['#004B56', '#002E34']} style={styles.gridGradient}>
+            <Text style={styles.gridIcon}>🎬</Text>
+            <Text style={styles.gridText}>MOVIES</Text>
+          </LinearGradient>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#001A31'}]}
-          onPress={() => setViewMode('series')}>
-          <Text style={styles.smartersIcon}>🎭</Text>
-          <Text style={styles.smartersText}>SERIES</Text>
+        <TouchableOpacity style={styles.gridItem} onPress={() => setViewMode('series')}>
+          <LinearGradient colors={['#006B7B', '#004B56']} style={styles.gridGradient}>
+            <Text style={styles.gridIcon}>🎭</Text>
+            <Text style={styles.gridText}>SERIES</Text>
+          </LinearGradient>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={[styles.smartersButton, {backgroundColor: '#003A45'}]}
-          onPress={() => setViewMode('epg')}>
-          <Text style={styles.smartersIcon}>📅</Text>
-          <Text style={styles.smartersText}>EPG</Text>
+        <TouchableOpacity style={styles.gridItem} onPress={() => setViewMode('epg')}>
+          <LinearGradient colors={['#008496', '#006B7B']} style={styles.gridGradient}>
+            <Text style={styles.gridIcon}>📅</Text>
+            <Text style={styles.gridText}>EPG GUIDE</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
       {recentlyWatched.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Continue Watching</Text>
+        <View style={styles.historySection}>
+          <Text style={styles.sectionTitle}>History</Text>
           <FlatList
             horizontal
             data={recentlyWatched}
-            keyExtractor={(item, index) => `${item.channelUrl}-${index}`}
             renderItem={({item}) => (
               <ChannelCard
-                channel={{
-                  name: item.channelName,
-                  url: item.channelUrl,
-                  logo: item.channelLogo,
-                  group: item.category,
-                }}
+                channel={{name: item.channelName, url: item.channelUrl, logo: item.channelLogo, group: item.category}}
                 isFavorite={favorites.has(item.channelUrl)}
-                onPress={() =>
-                  (navigation as any).navigate('Player', {
-                    channel: {
-                      name: item.channelName,
-                      url: item.channelUrl,
-                      logo: item.channelLogo,
-                      group: item.category,
-                    },
-                  })
-                }
+                onPress={() => (navigation as any).navigate('Player', {channel: {name: item.channelName, url: item.channelUrl, logo: item.channelLogo, group: item.category}})}
               />
             )}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{paddingLeft: 20}}
           />
         </View>
       )}
-      
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>Logout</Text>
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <Text style={styles.logoutBtnText}>Switch Account</Text>
       </TouchableOpacity>
     </View>
   );
 
-  const renderListHeader = () => (
-    <View style={styles.headerContainer}>
-      <View style={styles.listTopBar}>
-        <TouchableOpacity 
-          style={styles.backToHome}
-          onPress={() => {
-            setViewMode('home');
-            setSelectedCategory('All');
-            setSearchQuery('');
-          }}>
-          <Text style={[styles.backToHomeText, {color: primaryColor}]}>← Home</Text>
+  const renderListView = () => (
+    <View style={styles.listView}>
+      <View style={styles.listHeader}>
+        <TouchableOpacity onPress={() => setViewMode('home')} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.viewModeTitle}>
-          {viewMode.toUpperCase()}
-        </Text>
+        <Text style={styles.listTitle}>{viewMode.toUpperCase()}</Text>
       </View>
 
-      <View style={styles.searchContainer}>
+      <View style={styles.searchBar}>
         <TextInput
-          style={[styles.searchInput, {borderColor: secondaryColor}]}
-          placeholder={`Search ${viewMode}...`}
+          style={styles.searchInput}
+          placeholder="Search channels..."
           placeholderTextColor="#666"
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -247,163 +222,84 @@ const DashboardScreen: React.FC = () => {
       </View>
 
       <FlatList
-        horizontal
         data={categories}
-        keyExtractor={item => item}
+        horizontal
+        style={styles.categoryList}
         renderItem={({item}) => (
-          <TouchableOpacity
-            style={[
-              styles.categoryChip,
-              selectedCategory === item && {backgroundColor: primaryColor, borderColor: primaryColor},
-            ]}
-            onPress={() => setSelectedCategory(item)}>
-            <Text
-              style={[
-                styles.categoryText,
-                selectedCategory === item && styles.categoryTextActive,
-              ]}>
-              {item}
-            </Text>
+          <TouchableOpacity 
+            onPress={() => setSelectedCategory(item)}
+            style={[styles.categoryBtn, selectedCategory === item && {backgroundColor: primaryColor}]}>
+            <Text style={styles.categoryText}>{item}</Text>
           </TouchableOpacity>
         )}
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryList}
+      />
+
+      <FlatList
+        data={paginatedChannels}
+        numColumns={3}
+        key={viewMode} // Force re-render on mode change
+        renderItem={({item}) => (
+          <ChannelCard
+            channel={item}
+            isFavorite={favorites.has(item.url)}
+            onPress={() => (navigation as any).navigate('Player', {channel: item})}
+          />
+        )}
+        onEndReached={() => setCurrentPage(p => p + 1)}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.listContainer}
       />
     </View>
   );
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={primaryColor} />
-        <Text style={styles.loadingText}>Synchronizing streams...</Text>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
-      {viewMode === 'home' ? (
-        <FlatList
-          key="home-list"
-          data={[]}
-          renderItem={null}
-          ListHeaderComponent={renderHomeMode}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={loadData} 
-              tintColor={primaryColor}
-            />
-          }
-        />
-      ) : viewMode === 'epg' ? (
-        <View style={styles.epgPlaceholder}>
-          <TouchableOpacity 
-            style={styles.backToHome}
-            onPress={() => setViewMode('home')}>
-            <Text style={[styles.backToHomeText, {color: primaryColor}]}>← Home</Text>
-          </TouchableOpacity>
-          <Text style={styles.epgText}>EPG / TV Guide Coming Soon</Text>
-          <Text style={styles.epgSubText}>We are working on integrating the TV schedule for your channels.</Text>
+      <StatusBar barStyle="light-content" backgroundColor={darkBg} />
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={primaryColor} />
+          <Text style={styles.loadingText}>Loading StreamFlow...</Text>
         </View>
       ) : (
-        <FlatList
-          key="grid-list"
-          data={paginatedChannels}
-          numColumns={3}
-          keyExtractor={(item, index) => `${item.url}-${index}`}
-          renderItem={({item}) => (
-            <ChannelCard
-              channel={item}
-              isFavorite={favorites.has(item.url)}
-              onPress={() => (navigation as any).navigate('Player', {channel: item})}
-            />
-          )}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.7}
-          ListHeaderComponent={renderListHeader}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={loadData} 
-              tintColor={primaryColor}
-            />
-          }
-          contentContainerStyle={{paddingBottom: 20}}
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          windowSize={5}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No content matching your search</Text>
-            </View>
-          }
-        />
+        viewMode === 'home' ? renderHomeMode() : renderListView()
       )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  headerContainer: { paddingBottom: 10 },
-  topHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center' },
-  brandingContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logoCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333'
-  },
-  welcomeText: { color: '#888', fontSize: 12 },
-  userNameText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  profileButton: { elevation: 4 },
-  profileBadge: { width: 45, height: 45, borderRadius: 22.5, justifyContent: 'center', alignItems: 'center' },
-  profileIconText: { fontSize: 22 },
-  homeContainer: { flex: 1 },
-  smartersGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 10, justifyContent: 'space-between' },
-  smartersButton: {
-    width: '47%',
-    height: 120,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-    elevation: 5,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  buttonGradient: { ...StyleSheet.absoluteFillObject },
-  smartersIcon: { fontSize: 35, marginBottom: 8 },
-  smartersText: { color: '#ffffff', fontSize: 14, fontWeight: '800', letterSpacing: 1 },
-  listTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 15, marginBottom: 10 },
-  backToHome: { padding: 5 },
-  backToHomeText: { fontSize: 14, fontWeight: '600' },
-  viewModeTitle: { color: '#ffffff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
-  section: { marginTop: 10, marginBottom: 20 },
-  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 20, marginBottom: 15 },
-  epgPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  epgText: { color: '#ffffff', fontSize: 22, fontWeight: 'bold', marginTop: 20 },
-  epgSubText: { color: '#888', fontSize: 16, textAlign: 'center', marginTop: 10 },
-  logoutButton: { marginTop: 20, marginBottom: 40, alignSelf: 'center', padding: 10 },
-  logoutText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
-  emptyContainer: { padding: 40, alignItems: 'center' },
-  emptyText: { color: '#888', fontSize: 16 },
-  searchContainer: { paddingHorizontal: 20, marginBottom: 15 },
-  searchInput: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 15, color: '#fff', borderWidth: 1, borderColor: '#333' },
-  categoryList: { paddingLeft: 20, marginBottom: 15 },
-  categoryChip: { paddingHorizontal: 16, paddingVertical: 8, marginRight: 10, borderRadius: 20, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#333' },
-  categoryText: { color: '#888', fontWeight: 'bold' },
-  categoryTextActive: { color: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
-  loadingText: { color: '#fff', marginTop: 10 },
+  container: {flex: 1, backgroundColor: '#001518'},
+  center: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+  loadingText: {color: '#fff', marginTop: 10, fontSize: 16},
+  homeContainer: {flex: 1, padding: 20},
+  topHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30},
+  brandingContainer: {flexDirection: 'row', alignItems: 'center'},
+  logoCircleGradient: {width: 50, height: 50, borderRadius: 25, padding: 2, marginRight: 15},
+  logoCircle: {flex: 1, backgroundColor: '#001518', borderRadius: 23, justifyContent: 'center', alignItems: 'center'},
+  welcomeText: {color: '#00A8B5', fontSize: 14},
+  userNameText: {color: '#fff', fontSize: 20, fontWeight: 'bold'},
+  settingsButton: {padding: 10},
+  settingsIcon: {fontSize: 24},
+  smartersGrid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between'},
+  gridItem: {width: '48%', height: 120, marginBottom: 15, borderRadius: 15, overflow: 'hidden'},
+  gridGradient: {flex: 1, justifyContent: 'center', alignItems: 'center', padding: 10},
+  gridIcon: {fontSize: 32, marginBottom: 10},
+  gridText: {color: '#fff', fontSize: 14, fontWeight: 'bold'},
+  historySection: {marginTop: 20},
+  sectionTitle: {color: '#00A8B5', fontSize: 18, fontWeight: 'bold', marginBottom: 15},
+  logoutBtn: {marginTop: 'auto', alignSelf: 'center', padding: 15},
+  logoutBtnText: {color: '#666', fontSize: 14},
+  listView: {flex: 1},
+  listHeader: {flexDirection: 'row', alignItems: 'center', padding: 20},
+  backBtn: {marginRight: 20},
+  backBtnText: {color: '#00A8B5', fontSize: 16},
+  listTitle: {color: '#fff', fontSize: 20, fontWeight: 'bold'},
+  searchBar: {paddingHorizontal: 20, marginBottom: 15},
+  searchInput: {backgroundColor: '#002E34', color: '#fff', padding: 12, borderRadius: 10},
+  categoryList: {maxHeight: 50, marginBottom: 10, paddingLeft: 20},
+  categoryBtn: {paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, backgroundColor: '#002E34'},
+  categoryText: {color: '#fff', fontSize: 12},
+  listContainer: {padding: 10, paddingBottom: 100},
 });
 
 export default DashboardScreen;

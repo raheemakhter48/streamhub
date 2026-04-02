@@ -10,17 +10,22 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
+  Dimensions,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import {iptvAPI} from '../lib/api';
 import {useAuth} from '../context/AuthContext';
 
+const {width} = Dimensions.get('window');
+
 const SetupScreen: React.FC = () => {
   const navigation = useNavigation();
   const {isAuthenticated} = useAuth();
-  const [activeTab, setActiveTab] = useState<'m3u' | 'credentials' | 'paste'>('m3u');
+  const [activeTab, setActiveTab] = useState<'m3u' | 'xtream' | 'paste'>('m3u');
   const [loading, setLoading] = useState(false);
+  
+  // Form State
   const [providerName, setProviderName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +33,11 @@ const SetupScreen: React.FC = () => {
   const [m3uUrl, setM3uUrl] = useState('');
   const [epgUrl, setEpgUrl] = useState('');
   const [m3uContent, setM3uContent] = useState('');
+
+  // Smarters Theme
+  const primaryColor = '#00A8B5'; // Teal
+  const secondaryColor = '#004E92'; // Blue
+  const darkBg = '#001518';
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -39,400 +49,173 @@ const SetupScreen: React.FC = () => {
 
   const loadCredentials = async () => {
     try {
-      const data = await iptvAPI.getCredentials();
-      if (data.success && data.data) {
-        const creds = data.data;
-        setProviderName(creds.providerName || '');
+      const result = await iptvAPI.getCredentials();
+      if (result.success && result.data) {
+        const creds = result.data;
+        setProviderName(creds.provider_name || '');
+        setServerUrl(creds.server_url || '');
+        setM3uUrl(creds.m3u_url || '');
+        setEpgUrl(creds.epg_url || '');
+        // Password and username are sensitive, we don't pre-fill password usually
         setUsername(creds.username || '');
-        setServerUrl(creds.serverUrl || '');
-        setM3uUrl(creds.m3uUrl || '');
-        setEpgUrl(creds.epgUrl || '');
       }
     } catch (error) {
       console.error('Error loading credentials:', error);
     }
   };
 
-  const generateM3UUrl = (server: string, user: string, pass: string): string => {
-    let cleanUrl = server.trim();
-    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-      cleanUrl = `http://${cleanUrl}`;
-    }
-    try {
-      const url = new URL(cleanUrl);
-      url.pathname = '/get.php';
-      url.search = '';
-      url.searchParams.set('username', user);
-      url.searchParams.set('password', pass);
-      url.searchParams.set('type', 'm3u_plus');
-      return url.toString();
-    } catch {
-      return `${cleanUrl}/get.php?username=${user}&password=${pass}&type=m3u_plus`;
-    }
-  };
-
   const handleSave = async () => {
     setLoading(true);
     try {
-      let credentials: any = {providerName};
+      const payload: any = {
+        providerName: providerName.trim(),
+        epgUrl: epgUrl.trim(),
+      };
 
       if (activeTab === 'm3u') {
-        if (!m3uUrl.trim()) {
-          Alert.alert('Error', 'Please enter M3U URL');
-          setLoading(false);
-          return;
-        }
-        credentials.m3uUrl = m3uUrl.trim();
-        credentials.epgUrl = epgUrl.trim();
-      } else if (activeTab === 'credentials') {
+        if (!m3uUrl.trim()) throw new Error('M3U URL is required');
+        payload.m3uUrl = m3uUrl.trim();
+      } else if (activeTab === 'xtream') {
         if (!serverUrl.trim() || !username.trim() || !password.trim()) {
-          Alert.alert('Error', 'Please fill in all fields');
-          setLoading(false);
-          return;
+          throw new Error('All Xtream fields are required');
         }
-        credentials.serverUrl = serverUrl.trim();
-        credentials.username = username.trim();
-        credentials.password = password.trim();
-        credentials.m3uUrl = generateM3UUrl(serverUrl, username, password);
-      } else if (activeTab === 'paste') {
-        if (!m3uContent.trim()) {
-          Alert.alert('Error', 'Please paste M3U content');
-          setLoading(false);
-          return;
-        }
-        credentials.m3uContent = m3uContent.trim();
+        payload.serverUrl = serverUrl.trim();
+        payload.username = username.trim();
+        payload.password = password.trim();
+      } else {
+        if (!m3uContent.trim()) throw new Error('M3U Content is required');
+        payload.m3uContent = m3uContent.trim();
       }
 
-      const result = await iptvAPI.saveCredentials(credentials);
+      const result = await iptvAPI.saveCredentials(payload);
       if (result.success) {
-        Alert.alert('Success', 'IPTV credentials saved!', [
-          {text: 'OK', onPress: () => navigation.navigate('Dashboard' as never)},
+        Alert.alert('Success', 'IPTV Setup Completed!', [
+          {text: 'Go to Dashboard', onPress: () => navigation.navigate('Dashboard' as never)},
         ]);
       } else {
-        Alert.alert('Error', result.message || 'Failed to save credentials');
+        throw new Error(result.message || 'Failed to save');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save credentials');
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const secondaryColor = '#004E92'; // Deep Blue
-  const primaryColor = '#00A8B5'; // Teal
+  const renderInput = (label: string, value: string, setter: (v: string) => void, placeholder: string, secure = false) => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={value}
+        onChangeText={setter}
+        placeholder={placeholder}
+        placeholderTextColor="#555"
+        secureTextEntry={secure}
+        autoCapitalize="none"
+      />
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerSection}>
-          <Text style={styles.headerTitle}>Setup IPTV</Text>
-          <Text style={[styles.headerSubtitle, {color: primaryColor}]}>
-            Configure your playlist to start streaming live channels
-          </Text>
+      <StatusBar barStyle="light-content" backgroundColor={darkBg} />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        
+        <View style={styles.header}>
+          <Text style={styles.title}>SETUP YOUR PLAYLIST</Text>
+          <Text style={styles.subtitle}>Enter your IPTV provider details below</Text>
         </View>
 
-        <View style={styles.tabContainer}>
+        <View style={styles.tabBar}>
           {[
             {id: 'm3u', label: 'M3U URL'},
-            {id: 'credentials', label: 'Xtream'},
-            {id: 'paste', label: 'Paste'},
-          ].map((tab: any) => (
-            <TouchableOpacity
+            {id: 'xtream', label: 'XTREAM CODES'},
+            {id: 'paste', label: 'PASTE M3U'},
+          ].map(tab => (
+            <TouchableOpacity 
               key={tab.id}
-              style={[
-                styles.tab, 
-                activeTab === tab.id && {backgroundColor: primaryColor, borderColor: primaryColor}
-              ]}
-              onPress={() => setActiveTab(tab.id)}>
-              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
-                {tab.label}
-              </Text>
+              onPress={() => setActiveTab(tab.id as any)}
+              style={[styles.tab, activeTab === tab.id && {borderBottomColor: primaryColor}]}>
+              <Text style={[styles.tabText, activeTab === tab.id && {color: primaryColor}]}>{tab.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={[styles.formCard, {borderColor: secondaryColor}]}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Provider Name (Optional)</Text>
-            <View style={[styles.inputWrapper, {borderColor: '#333'}]}>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. My Premium IPTV"
-                placeholderTextColor="#666"
-                value={providerName}
-                onChangeText={setProviderName}
-              />
-            </View>
-          </View>
-
+        <View style={styles.form}>
+          {renderInput('PROVIDER NAME', providerName, setProviderName, 'e.g. My Premium IPTV')}
+          
           {activeTab === 'm3u' && (
             <>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>M3U Playlist URL</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="https://server.com/playlist.m3u"
-                    placeholderTextColor="#666"
-                    value={m3uUrl}
-                    onChangeText={setM3uUrl}
-                    keyboardType="url"
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>EPG XMLTV URL (Optional)</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="https://server.com/epg.xml.gz"
-                    placeholderTextColor="#666"
-                    value={epgUrl}
-                    onChangeText={setEpgUrl}
-                    keyboardType="url"
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
+              {renderInput('M3U URL', m3uUrl, setM3uUrl, 'http://server.com/get.php?user=...')}
+              {renderInput('EPG URL (OPTIONAL)', epgUrl, setEpgUrl, 'http://server.com/xmltv.php?user=...')}
             </>
           )}
 
-          {activeTab === 'credentials' && (
+          {activeTab === 'xtream' && (
             <>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Server URL</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="http://iptv-provider.com:8080"
-                    placeholderTextColor="#666"
-                    value={serverUrl}
-                    onChangeText={setServerUrl}
-                    keyboardType="url"
-                    autoCapitalize="none"
-                  />
+              {renderInput('SERVER URL', serverUrl, setServerUrl, 'http://iptv-server.com:8080')}
+              <View style={styles.row}>
+                <View style={{flex: 1, marginRight: 10}}>
+                  {renderInput('USERNAME', username, setUsername, 'Username')}
+                </View>
+                <View style={{flex: 1}}>
+                  {renderInput('PASSWORD', password, setPassword, 'Password', true)}
                 </View>
               </View>
-              <View style={styles.inputRow}>
-                <View style={[styles.inputGroup, {flex: 1, marginRight: 8}]}>
-                  <Text style={styles.label}>Username</Text>
-                  <View style={styles.inputWrapper}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="User"
-                      placeholderTextColor="#666"
-                      value={username}
-                      onChangeText={setUsername}
-                      autoCapitalize="none"
-                    />
-                  </View>
-                </View>
-                <View style={[styles.inputGroup, {flex: 1, marginLeft: 8}]}>
-                  <Text style={styles.label}>Password</Text>
-                  <View style={styles.inputWrapper}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Pass"
-                      placeholderTextColor="#666"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                      autoCapitalize="none"
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>EPG XMLTV URL (Optional)</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="https://server.com/epg.xml.gz"
-                    placeholderTextColor="#666"
-                    value={epgUrl}
-                    onChangeText={setEpgUrl}
-                    keyboardType="url"
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
+              {renderInput('EPG URL (OPTIONAL)', epgUrl, setEpgUrl, 'Custom EPG Link')}
             </>
           )}
 
           {activeTab === 'paste' && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>M3U Content</Text>
-              <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="#EXTM3U\n#EXTINF:-1,Channel Name\nhttp://server.com/stream.ts"
-                  placeholderTextColor="#444"
-                  value={m3uContent}
-                  onChangeText={setM3uContent}
-                  multiline
-                  numberOfLines={8}
-                  textAlignVertical="top"
-                />
-              </View>
+              <Text style={styles.label}>M3U CONTENT</Text>
+              <TextInput
+                style={[styles.input, {height: 150, textAlignVertical: 'top'}]}
+                multiline
+                value={m3uContent}
+                onChangeText={setM3uContent}
+                placeholder="#EXTM3U..."
+                placeholderTextColor="#555"
+              />
             </View>
           )}
 
-          <TouchableOpacity
-            style={styles.saveButtonContainer}
-            onPress={handleSave}
-            disabled={loading}>
-            <LinearGradient
-              colors={['#3b82f6', '#2563eb']}
-              style={[styles.saveButton, loading && styles.buttonDisabled]}>
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save & Sync Channels</Text>
-              )}
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={loading}>
+            <LinearGradient colors={[primaryColor, secondaryColor]} style={styles.btnGradient}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>CONNECT NOW</Text>}
             </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
+            <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Back to Dashboard</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerSection: {
-    marginTop: 10,
-    marginBottom: 30,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 8,
-    lineHeight: 22,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    padding: 6,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  tabActive: {
-    backgroundColor: '#2a2a2a',
-    elevation: 2,
-  },
-  tabText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tabTextActive: {
-    color: '#3b82f6',
-  },
-  formCard: {
-    backgroundColor: '#111111',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputRow: {
-    flexDirection: 'row',
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#aaa',
-    marginBottom: 10,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  inputWrapper: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    overflow: 'hidden',
-  },
-  textAreaWrapper: {
-    height: 180,
-  },
-  input: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  textArea: {
-    height: '100%',
-  },
-  saveButtonContainer: {
-    marginTop: 10,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 4,
-  },
-  saveButton: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  backButton: {
-    marginTop: 25,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
+  container: {flex: 1, backgroundColor: '#001518'},
+  scrollContent: {padding: 25},
+  header: {marginBottom: 30, alignItems: 'center'},
+  title: {color: '#fff', fontSize: 24, fontWeight: 'bold', letterSpacing: 1},
+  subtitle: {color: '#00A8B5', fontSize: 14, marginTop: 5},
+  tabBar: {flexDirection: 'row', marginBottom: 30, borderBottomWidth: 1, borderBottomColor: '#002E34'},
+  tab: {flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent'},
+  tabText: {color: '#666', fontSize: 12, fontWeight: 'bold'},
+  form: {backgroundColor: '#001F24', padding: 20, borderRadius: 15, borderWidth: 1, borderColor: '#002E34'},
+  inputGroup: {marginBottom: 20},
+  label: {color: '#00A8B5', fontSize: 11, fontWeight: 'bold', marginBottom: 8},
+  input: {backgroundColor: '#001518', color: '#fff', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#002E34'},
+  row: {flexDirection: 'row'},
+  saveBtn: {marginTop: 10, borderRadius: 10, overflow: 'hidden'},
+  btnGradient: {padding: 18, alignItems: 'center'},
+  btnText: {color: '#fff', fontSize: 16, fontWeight: 'bold', letterSpacing: 1},
+  cancelBtn: {marginTop: 20, alignItems: 'center'},
+  cancelText: {color: '#666', fontSize: 14},
 });
 
 export default SetupScreen;
-
-export default SetupScreen;
-
