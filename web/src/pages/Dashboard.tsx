@@ -136,6 +136,15 @@ const Dashboard = () => {
     }
   };
 
+  const handleRefreshChannels = async () => {
+    try {
+      await parseM3UPlaylist();
+      toast.success("Playlist refreshed!");
+    } catch (error) {
+      toast.error("Refresh failed");
+    }
+  };
+
   const parseM3U = (content: string): Channel[] => {
     const lines = content.split("\n");
     const channels: Channel[] = [];
